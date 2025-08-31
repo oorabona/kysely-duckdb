@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.0] - 2025-08-31
+
 ### Added
 - UUID handling toggle: `uuidAsString` (default: false) to control whether UUIDs are returned as native DuckDB runtime objects or stringified
 - JSON helpers improvements:
@@ -119,3 +121,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 *For more details, see the [full documentation](README.md) and [examples](examples/).*
+[Unreleased]: git+https://github.com/oorabona/kysely-duckdb.git/compare/v0.3.0...HEAD
+[v0.3.0]: git+https://github.com/oorabona/kysely-duckdb.git/releases/tag/v0.3.0
