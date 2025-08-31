@@ -111,5 +111,17 @@
   "simple-git-hooks": {
     "pre-commit": "pnpm exec nano-staged",
     "pre-push": "pnpm run typecheck && pnpm run typecheck:tests && pnpm run test:coverage && pnpm run build"
+  },
+  "release-it": {
+    "npm": {
+      "skipChecks": true,
+      "publish": true,
+      "publishPath": "dist",
+      "publishArgs": [
+        "--provenance",
+        "--access",
+        "public"
+      ]
+    }
   }
 }

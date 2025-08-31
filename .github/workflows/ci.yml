@@ -1,5 +1,10 @@
 name: CI
 
+# This workflow validates code quality (lint/format/typecheck), runs tests, and
+# builds the package once. The built output is uploaded as an artifact (dist/)
+# so other workflows (e.g. Release) can download and publish the exact same
+# bits without rebuilding ("build once, promote later").
+
 on:
   workflow_dispatch:
   push:
@@ -16,26 +21,34 @@ jobs:
     runs-on: ubuntu-latest
     name: Lint & Type Check
     steps:
+      # Fetches the repository code.
       - uses: actions/checkout@v4
 
+      # Ensures pnpm is available in the runner.
       - uses: pnpm/action-setup@v4
-
+        
+      # Sets Node.js version and enables pnpm cache for faster installs.
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
 
+      # Install dependencies based on the lockfile.
       - run: pnpm install --frozen-lockfile
 
+      # Static analysis with Biome (no writes).
       - name: Lint
         run: pnpm run lint:check
 
+      # Verifies formatting only (no writes).
       - name: Format check
         run: pnpm run format:check
 
+      # Type-check the library source.
       - name: Type check
         run: pnpm run typecheck
 
+      # Type-check tests and examples with their dedicated tsconfig.
       - name: Type check (tests)
         run: pnpm run typecheck:tests
 
@@ -46,20 +59,26 @@ jobs:
         node-version: [20.x, 22.x]
     name: Test (Node ${{ matrix.node-version }})
     steps:
+      # Fetches the repository code.
       - uses: actions/checkout@v4
 
+      # Ensures pnpm is available.
       - uses: pnpm/action-setup@v4
 
+      # Tests against multiple Node versions.
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
 
+      # Install dependencies.
       - run: pnpm install --frozen-lockfile
 
+      # Run unit/integration tests and collect coverage.
       - name: Run tests
         run: pnpm run test:coverage
 
+      # Upload coverage once (on Node 20) for reporting.
       - name: Upload coverage to Codecov
         if: matrix.node-version == '20.x'
         uses: codecov/codecov-action@v4
@@ -72,25 +91,42 @@ jobs:
     name: Build
     needs: [lint, test]
     steps:
+      # Fetches the repository code.
       - uses: actions/checkout@v4
 
+      # Ensures pnpm is available.
       - uses: pnpm/action-setup@v4
 
+      # Build with the primary Node version.
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
 
+      # Install dependencies.
       - run: pnpm install --frozen-lockfile
 
+      # Build the package (dist/) using tsup.
       - name: Build package
         run: pnpm run build
 
+      # Create an installable tarball for optional E2E install tests/debug.
       - name: Pack tarball (smoke)
-        run: pnpm pack
+        run: pnpm pack --pack-destination ./artifacts
 
-      - name: Upload build artifacts
+      # Upload built output; Release workflow will download this and publish
+      # it to npm without rebuilding.
+      - name: Upload dist folder
         uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
+          retention-days: 7
+
+      # Upload the tarball for optional downstream testing or manual inspection.
+      - name: Upload package tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-tarball
+          path: artifacts/*.tgz
+          retention-days: 7

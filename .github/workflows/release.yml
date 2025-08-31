@@ -1,5 +1,10 @@
 name: Release
 
+# This workflow publishes a new package version. It downloads the prebuilt
+# dist/ artifact from the CI workflow for the same commit and then runs
+# release-it to bump version, tag, create a GitHub Release, and publish to npm
+# (with provenance). This follows the "build once, promote later" practice.
+
 on:
   push:
     branches: [main]
@@ -10,27 +15,43 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # For git operations
+      id-token: write # < REQUIRED FOR OIDC
     steps:
+      # Full history is required by release-it to generate correct tags/notes.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # needed for tags and history
 
+      # Ensure pnpm is available for scripts.
       - uses: pnpm/action-setup@v4
 
+      # Configure Node and npm registry for publish.
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
           registry-url: https://registry.npmjs.org/
 
+      # Install dev tooling (release-it) without modifying lockfile.
       - run: pnpm install --frozen-lockfile
 
-      - name: Build package
-        run: pnpm run build
+      # Restores the built dist/ from the CI run of the same commit.
+      - name: Download dist artifact from CI for this commit
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: CI
+          name: dist
+          commit: ${{ github.sha }}
+          path: .
 
-      - name: Release with release-it
+      # release-it performs version bump, tags, GitHub Release, and npm publish
+      # using the prebuilt dist/ without rebuilding, and enables npm provenance.
+      - name: Release with release-it (no npm publish)
         run: pnpm run release:ci
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
