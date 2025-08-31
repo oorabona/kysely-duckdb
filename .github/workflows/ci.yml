@@ -27,7 +27,6 @@ concurrency:
 
 jobs:
   validate:
-    # ✅ FIX: Ne s'exécute que sur push/PR, pas sur le dispatch de release
     if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     name: Validate (Lint, Test)
@@ -50,7 +49,6 @@ jobs:
           fail_ci_if_error: false
 
   build:
-    # ✅ FIX: Only runs on push/PR
     if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     name: Build
@@ -64,7 +62,6 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
-      # ✅ FIX: We upload the `dist` folder, not a tarball
       - name: Upload dist artifact
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
@@ -74,7 +71,6 @@ jobs:
           retention-days: 30
 
   release:
-    # ✅ FIX: This job is now independent of the others
     runs-on: ubuntu-latest
     name: Release
     if: github.event_name == 'workflow_dispatch'
@@ -103,7 +99,7 @@ jobs:
           workflow: ci.yml
           commit: ${{ github.event.inputs.commit_sha || github.sha }}
           name: dist-${{ github.event.inputs.commit_sha || github.sha }}
-          path: ./dist 
+          path: ./dist
           workflow_conclusion: success
 
       - name: Verify dist artifact
@@ -114,17 +110,22 @@ jobs:
           fi
           echo "✓ dist artifact is valid."
 
-      # ✅ FIX: Run release-it without rebuilding or publishing
+      # ✅ FIX: Configure Git user for commit
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # ✅ FIX: Use --npm.publish=false instead of --no-npm
       - name: Run release-it (Git operations only)
         run: |
           pnpm release-it --ci \
-            --no-npm \
+            --npm.publish=false \
             --increment ${{ github.event.inputs.release_type || 'patch' }} \
             ${{ github.event.inputs.preid && format('--preRelease {0}', github.event.inputs.preid) || '' }} \
             ${{ github.event.inputs.commit_sha && '--git.requireBranch=' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ✅ FIX: Publish to npm with provenance
       - name: Publish to npm
         run: npm publish --provenance
