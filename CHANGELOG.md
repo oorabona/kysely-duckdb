@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tests stabilized under strict TS (index access guards, narrowed errors, ColumnType defaults)
 - `loadJsonExtension` no longer throws on non-Kysely DB mocks; executes raw SQL strings when needed
 
-## [0.2.0] - Unreleased
+## [v0.2.0] - Unreleased
 
 ### Added
 - 🎯 **Complete rewrite** using modern `@duckdb/node-api`
@@ -100,7 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Glob patterns** for multiple file processing
 - **Custom options** for file format handling
 
-## [0.1.0] - Initial Release
+## [v0.1.0] - Initial Release
 
 ### Added
 - Basic DuckDB dialect for Kysely using new DuckDB NEO (@duckdb/node-api)

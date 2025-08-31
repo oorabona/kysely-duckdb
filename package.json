@@ -93,7 +93,8 @@
     "vitest": "^3.2.4"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "nano-staged": {
     "*.{ts,tsx,js,jsx}": [
@@ -111,16 +112,5 @@
   "simple-git-hooks": {
     "pre-commit": "pnpm exec nano-staged",
     "pre-push": "pnpm run typecheck && pnpm run typecheck:tests && pnpm run test:coverage && pnpm run build"
-  },
-  "release-it": {
-    "npm": {
-      "skipChecks": true,
-      "publish": true,
-      "publishArgs": [
-        "--provenance",
-        "--access",
-        "public"
-      ]
-    }
   }
 }

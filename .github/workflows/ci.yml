@@ -7,6 +7,27 @@ name: CI
 
 on:
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Semver increment (patch, minor, major, prerelease, from-git)'
+        type: choice
+        required: false
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+          - from-git
+      preid:
+        description: 'Pre-release identifier (e.g., rc, beta). Used when release_type=prerelease'
+        type: string
+        required: false
+      dry_run:
+        description: 'Run release-it in dry-run mode (no changes)'
+        type: boolean
+        required: false
+        default: false
   push:
     branches: [main]
   pull_request:
@@ -135,7 +156,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Release
     needs: [build]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     permissions:
       contents: write # For git operations
       id-token: write # Required for npm provenance (OIDC)
@@ -166,8 +187,18 @@ jobs:
         # Restores the built dist/ from the previous job (build once, promote later).
 
       - name: Release with release-it
-        run: pnpm run release:ci
+        shell: bash
+        run: |
+          ARGS=("--ci" "--increment" "${{ github.event.inputs.release_type || 'patch' }}")
+          if [[ -n "${{ github.event.inputs.preid }}" ]]; then
+            ARGS+=("--preRelease" "${{ github.event.inputs.preid }}")
+          fi
+          if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
+            ARGS+=("--dry-run")
+          fi
+          echo "Running: release-it ${ARGS[*]}"
+          pnpm release-it "${ARGS[@]}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
-        # Bumps version, creates tag/GitHub Release, and publishes to npm from dist/ with provenance.
+        # Bumps version, creates tag/GitHub Release, and publishes to npm with provenance.

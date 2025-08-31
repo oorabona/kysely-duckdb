@@ -9,9 +9,13 @@
   "git": {
     "commitMessage": "release: bump v${version}",
     "tagName": "v${version}",
-    "requireBranch": "main"
+    "requireBranch": "main",
+    "requireUpstream": false,
+    "requireCleanWorkingDir": false
   },
   "npm": {
-    "publish": true
+    "skipChecks": true,
+    "publish": true,
+    "publishArgs": ["--provenance", "--access", "public"]
   }
 }
