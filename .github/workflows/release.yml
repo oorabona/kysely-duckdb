@@ -39,7 +39,7 @@ jobs:
 
       # Restores the built dist/ from the CI run of the same commit.
       - name: Download dist artifact from CI for this commit
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v6
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: CI
