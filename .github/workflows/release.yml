@@ -18,6 +18,7 @@ jobs:
     permissions:
       contents: write # For git operations
       id-token: write # < REQUIRED FOR OIDC
+      actions: read   # Needed to list workflow runs and download artifacts from CI
     steps:
       # Full history is required by release-it to generate correct tags/notes.
       - uses: actions/checkout@v4
@@ -42,16 +43,16 @@ jobs:
         uses: dawidd6/action-download-artifact@v6
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: CI
+          workflow: ci.yml
           name: dist
           commit: ${{ github.sha }}
+          workflow_conclusion: success
           path: .
 
       # release-it performs version bump, tags, GitHub Release, and npm publish
       # using the prebuilt dist/ without rebuilding, and enables npm provenance.
-      - name: Release with release-it (no npm publish)
+      - name: Release with release-it
         run: pnpm run release:ci
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
