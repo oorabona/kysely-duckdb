@@ -28,6 +28,10 @@ on:
         type: boolean
         required: false
         default: false
+      commit_sha:
+        description: 'Commit SHA to release (defaults to HEAD of selected branch)'
+        type: string
+        required: false
   push:
     branches: [main]
   pull_request:
@@ -39,6 +43,7 @@ concurrency:
 
 jobs:
   lint:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     name: Lint & Type Check
     steps:
@@ -74,6 +79,7 @@ jobs:
         run: pnpm run typecheck:tests
 
   test:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -108,6 +114,7 @@ jobs:
           fail_ci_if_error: false
 
   build:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     name: Build
     needs: [lint, test]
@@ -133,39 +140,40 @@ jobs:
 
       # Create an installable tarball for optional E2E install tests/debug.
       - name: Pack tarball (smoke)
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         run: pnpm pack --pack-destination ./artifacts
 
       # Upload built output; Release workflow will download this and publish
       # it to npm without rebuilding.
       - name: Upload dist folder
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: dist-${{ github.sha }}
           path: dist/
           retention-days: 7
 
       # Upload the tarball for optional downstream testing or manual inspection.
       - name: Upload package tarball
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v4
         with:
-          name: package-tarball
+          name: package-tarball-${{ github.sha }}
           path: artifacts/*.tgz
           retention-days: 7
 
   release:
     runs-on: ubuntu-latest
     name: Release
-    needs: [build]
     if: ${{ github.event_name == 'workflow_dispatch' }}
     permissions:
       contents: write # For git operations
       id-token: write # Required for npm provenance (OIDC)
+      actions: read   # To download artifacts from previous runs
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.inputs.commit_sha || 'main' }}
           fetch-depth: 0 # needed for tags and history
         # Use the same commit as the CI run; in a single workflow this matches by default.
 
@@ -182,12 +190,25 @@ jobs:
       - run: pnpm install --frozen-lockfile
         # Install release tooling.
 
-      - name: Download dist artifact from the build job
-        uses: actions/download-artifact@v4
+      - name: Try download dist artifact for target SHA
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
         with:
-          name: dist
+          workflow: ci.yml
+          commit: ${{ github.event.inputs.commit_sha || github.sha }}
+          name: dist-${{ github.event.inputs.commit_sha || github.sha }}
           path: .
-        # Restores the built dist/ from the previous job (build once, promote later).
+
+      - name: Verify dist exists
+        shell: bash
+        run: |
+          if [ ! -f "dist/index.js" ]; then
+            echo "Error: dist artifact not found for the selected commit."
+            echo "Hint: run the CI build on that commit (push to main) to produce dist-${{ github.event.inputs.commit_sha || github.sha }} first."
+            exit 1
+          else
+            echo "dist artifact found"
+          fi
 
       - name: Release with release-it
         shell: bash
@@ -195,6 +216,10 @@ jobs:
           ARGS=("--ci" "--increment" "${{ github.event.inputs.release_type || 'patch' }}")
           if [[ -n "${{ github.event.inputs.preid }}" ]]; then
             ARGS+=("--preRelease" "${{ github.event.inputs.preid }}")
+          fi
+          if [[ -n "${{ github.event.inputs.commit_sha }}" ]]; then
+            # When targeting a specific commit SHA, avoid requireBranch checks (detached HEAD)
+            ARGS+=("--git.requireBranch=")
           fi
           if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
             ARGS+=("--dry-run")
