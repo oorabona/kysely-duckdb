@@ -116,7 +116,6 @@
     "npm": {
       "skipChecks": true,
       "publish": true,
-      "publishPath": "dist",
       "publishArgs": [
         "--provenance",
         "--access",
