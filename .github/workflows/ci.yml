@@ -130,3 +130,44 @@ jobs:
           name: package-tarball
           path: artifacts/*.tgz
           retention-days: 7
+
+  release:
+    runs-on: ubuntu-latest
+    name: Release
+    needs: [build]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    permissions:
+      contents: write # For git operations
+      id-token: write # Required for npm provenance (OIDC)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # needed for tags and history
+        # Use the same commit as the CI run; in a single workflow this matches by default.
+
+      - uses: pnpm/action-setup@v4
+        # Ensure pnpm is available.
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          registry-url: https://registry.npmjs.org/
+        # Configure Node and npm registry for publish.
+
+      - run: pnpm install --frozen-lockfile
+        # Install release tooling.
+
+      - name: Download dist artifact from the build job
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: .
+        # Restores the built dist/ from the previous job (build once, promote later).
+
+      - name: Release with release-it
+        run: pnpm run release:ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
+        # Bumps version, creates tag/GitHub Release, and publishes to npm from dist/ with provenance.
