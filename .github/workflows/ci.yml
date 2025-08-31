@@ -192,22 +192,21 @@ jobs:
 
       - name: Try download dist artifact for target SHA
         uses: dawidd6/action-download-artifact@v6
-        continue-on-error: true
         with:
           workflow: ci.yml
           commit: ${{ github.event.inputs.commit_sha || github.sha }}
           name: dist-${{ github.event.inputs.commit_sha || github.sha }}
           path: .
 
-      - name: Verify dist exists
+      - name: Verify index.js exists
         shell: bash
         run: |
-          if [ ! -f "dist/index.js" ]; then
-            echo "Error: dist artifact not found for the selected commit."
+          if [ ! -f "index.js" ]; then
+            echo "Error: index.js not found in artifact for the selected commit."
             echo "Hint: run the CI build on that commit (push to main) to produce dist-${{ github.event.inputs.commit_sha || github.sha }} first."
             exit 1
           else
-            echo "dist artifact found"
+            echo "File index.js found in artifact !"
           fi
 
       - name: Release with release-it
