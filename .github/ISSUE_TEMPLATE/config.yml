@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and Support
+    url: https://github.com/oorabona/kysely-duckdb/discussions
+    about: Please use GitHub Discussions for Q&A or general support.
+  - name: Kysely Community
+    url: https://github.com/kysely-org/kysely/discussions
+    about: For general Kysely questions and patterns.

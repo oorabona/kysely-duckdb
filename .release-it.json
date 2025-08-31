@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "before:bump": "pnpm tsx scripts/update-changelog.ts ${version}"
+  },
+  "github": {
+    "release": true,
+    "releaseNotes": "pnpm tsx scripts/extract-changelog.ts ${version}"
+  },
+  "git": {
+    "commitMessage": "release: bump v${version}",
+    "tagName": "v${version}",
+    "requireBranch": "main"
+  },
+  "npm": {
+    "publish": true
+  }
+}

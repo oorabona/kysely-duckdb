@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+  "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": [
+    "*.ts",
+    "*.d.ts"
+  ]
+}

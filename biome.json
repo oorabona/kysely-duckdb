@@ -1,0 +1,63 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.2.2/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "complexity": {
+        "noBannedTypes": "error",
+        "noExtraBooleanCast": "error",
+        "noUselessCatch": "error",
+        "useLiteralKeys": "off"
+      },
+      "correctness": {
+        "noConstAssign": "error",
+        "noUndeclaredVariables": "error",
+        "noUnusedVariables": "error"
+      },
+      "style": {
+        "noNegationElse": "error",
+        "useConst": "error",
+        "useBlockStatements": "error",
+        "useTemplate": "error",
+        "useImportType": "error"
+      },
+      "suspicious": {
+        "noExplicitAny": "off",
+        "noDuplicateParameters": "error",
+        "noPrototypeBuiltins": "error"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "lineEnding": "lf"
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "all",
+      "semicolons": "asNeeded",
+      "arrowParentheses": "asNeeded",
+      "bracketSpacing": true,
+      "bracketSameLine": false,
+      "quoteProperties": "asNeeded"
+    }
+  },
+  "json": {
+    "formatter": {
+      "trailingCommas": "none"
+    }
+  },
+  "files": {
+    "includes": ["src/**/*", "tests/**/*", "*.ts", "*.js", "*.json", "*.md"]
+  }
+}
