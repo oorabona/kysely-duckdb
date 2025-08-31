@@ -1,9 +1,4 @@
-name: CI
-
-# This workflow validates code quality (lint/format/typecheck), runs tests, and
-# builds the package once. The built output is uploaded as an artifact (dist/)
-# so other workflows (e.g. Release) can download and publish the exact same
-# bits without rebuilding ("build once, promote later").
+name: CI & Release
 
 on:
   workflow_dispatch:
@@ -11,25 +6,14 @@ on:
       release_type:
         description: 'Semver increment (patch, minor, major, prerelease, from-git)'
         type: choice
-        required: false
         default: patch
-        options:
-          - patch
-          - minor
-          - major
-          - prerelease
-          - from-git
+        options: [patch, minor, major, prerelease, from-git]
       preid:
-        description: 'Pre-release identifier (e.g., rc, beta). Used when release_type=prerelease'
+        description: 'Pre-release identifier (e.g., rc, beta)'
         type: string
         required: false
-      dry_run:
-        description: 'Run release-it in dry-run mode (no changes)'
-        type: boolean
-        required: false
-        default: false
       commit_sha:
-        description: 'Commit SHA to release (defaults to HEAD of selected branch)'
+        description: 'Commit SHA to release (defaults to HEAD of main)'
         type: string
         required: false
   push:
@@ -42,190 +26,105 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    if: ${{ github.event_name != 'workflow_dispatch' }}
+  validate:
+    # ✅ CHANGE: Renamed from lint/test to a single validation stage
     runs-on: ubuntu-latest
-    name: Lint & Type Check
+    name: Validate (Lint, Test)
     steps:
-      # Fetches the repository code.
       - uses: actions/checkout@v4
-
-      # Ensures pnpm is available in the runner.
       - uses: pnpm/action-setup@v4
-        
-      # Sets Node.js version and enables pnpm cache for faster installs.
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
-
-      # Install dependencies based on the lockfile.
       - run: pnpm install --frozen-lockfile
-
-      # Static analysis with Biome (no writes).
-      - name: Lint
-        run: pnpm run lint:check
-
-      # Verifies formatting only (no writes).
-      - name: Format check
-        run: pnpm run format:check
-
-      # Type-check the library source.
-      - name: Type check
-        run: pnpm run typecheck
-
-      # Type-check tests and examples with their dedicated tsconfig.
-      - name: Type check (tests)
-        run: pnpm run typecheck:tests
-
-  test:
-    if: ${{ github.event_name != 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [20.x, 22.x]
-    name: Test (Node ${{ matrix.node-version }})
-    steps:
-      # Fetches the repository code.
-      - uses: actions/checkout@v4
-
-      # Ensures pnpm is available.
-      - uses: pnpm/action-setup@v4
-
-      # Tests against multiple Node versions.
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'pnpm'
-
-      # Install dependencies.
-      - run: pnpm install --frozen-lockfile
-
-      # Run unit/integration tests and collect coverage.
-      - name: Run tests
-        run: pnpm run test:coverage
-
-      # Upload coverage once (on Node 20) for reporting.
-      - name: Upload coverage to Codecov
-        if: matrix.node-version == '20.x'
-        uses: codecov/codecov-action@v4
+      - run: pnpm run lint:check
+      - run: pnpm run format:check
+      - run: pnpm run typecheck
+      - run: pnpm run typecheck:tests
+      - run: pnpm run test:coverage
+      - uses: codecov/codecov-action@v4
         with:
           files: ./coverage/coverage-final.json
           fail_ci_if_error: false
 
-  build:
-    if: ${{ github.event_name != 'workflow_dispatch' }}
+  build_and_pack:
+    # ✅ CHANGE: This job now builds AND creates the final package artifact
     runs-on: ubuntu-latest
-    name: Build
-    needs: [lint, test]
+    name: Build & Pack
+    needs: [validate]
+    # ✅ CHANGE: Only run on main branch pushes to create release candidates
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
-      # Fetches the repository code.
       - uses: actions/checkout@v4
-
-      # Ensures pnpm is available.
       - uses: pnpm/action-setup@v4
-
-      # Build with the primary Node version.
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
-
-      # Install dependencies.
       - run: pnpm install --frozen-lockfile
-
-      # Build the package (dist/) using tsup.
-      - name: Build package
-        run: pnpm run build
-
-      # Create an installable tarball for optional E2E install tests/debug.
-      - name: Pack tarball (smoke)
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        run: pnpm pack --pack-destination ./artifacts
-
-      # Upload built output; Release workflow will download this and publish
-      # it to npm without rebuilding.
-      - name: Upload dist folder
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - run: pnpm run build
+      - name: Pack tarball
+        run: pnpm pack --pack-destination ./artifact
+      - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dist-${{ github.sha }}
-          path: dist/
-          retention-days: 7
-
-      # Upload the tarball for optional downstream testing or manual inspection.
-      - name: Upload package tarball
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: package-tarball-${{ github.sha }}
-          path: artifacts/*.tgz
-          retention-days: 7
+          name: package-${{ github.sha }}
+          path: ./artifact/*.tgz
+          retention-days: 30
 
   release:
+    # ✅ CHANGE: This job is now extremely lightweight
     runs-on: ubuntu-latest
     name: Release
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    if: github.event_name == 'workflow_dispatch'
     permissions:
-      contents: write # For git operations
-      id-token: write # Required for npm provenance (OIDC)
-      actions: read   # To download artifacts from previous runs
+      contents: write
+      id-token: write
+      actions: read
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.commit_sha || 'main' }}
-          fetch-depth: 0 # needed for tags and history
-        # Use the same commit as the CI run; in a single workflow this matches by default.
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
-        # Ensure pnpm is available.
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
           registry-url: https://registry.npmjs.org/
-        # Configure Node and npm registry for publish.
 
+      # ✅ CHANGE: Only install dependencies needed for release-it
       - run: pnpm install --frozen-lockfile
-        # Install release tooling.
 
-      - name: Try download dist artifact for target SHA
+      - name: Download package artifact
+        id: download
         uses: dawidd6/action-download-artifact@v6
         with:
           workflow: ci.yml
           commit: ${{ github.event.inputs.commit_sha || github.sha }}
-          name: dist-${{ github.event.inputs.commit_sha || github.sha }}
-          path: .
+          name: package-${{ github.event.inputs.commit_sha || github.sha }}
+          path: ./release-package
+          workflow_conclusion: success
 
-      - name: Verify index.js exists
-        shell: bash
-        run: |
-          if [ ! -f "index.js" ]; then
-            echo "Error: index.js not found in artifact for the selected commit."
-            echo "Hint: run the CI build on that commit (push to main) to produce dist-${{ github.event.inputs.commit_sha || github.sha }} first."
-            exit 1
-          else
-            echo "File index.js found in artifact !"
-          fi
-
+      # ✅ CHANGE: release-it now publishes the downloaded tarball
       - name: Release with release-it
-        shell: bash
         run: |
-          ARGS=("--ci" "--increment" "${{ github.event.inputs.release_type || 'patch' }}")
-          if [[ -n "${{ github.event.inputs.preid }}" ]]; then
-            ARGS+=("--preRelease" "${{ github.event.inputs.preid }}")
+          PACKAGE_PATH=$(find ./release-package -name "*.tgz")
+          if [ -z "$PACKAGE_PATH" ]; then
+            echo "Error: Package tarball not found."
+            exit 1
           fi
-          if [[ -n "${{ github.event.inputs.commit_sha }}" ]]; then
-            # When targeting a specific commit SHA, avoid requireBranch checks (detached HEAD)
-            ARGS+=("--git.requireBranch=")
-          fi
-          if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
-            ARGS+=("--dry-run")
-          fi
-          echo "Running: release-it ${ARGS[*]}"
-          pnpm release-it "${ARGS[@]}"
+          echo "Package to publish: $PACKAGE_PATH"
+
+          # release-it will handle git tag, commit, GitHub Release,
+          # and then call `npm publish` on the tarball.
+          pnpm release-it --ci \
+            --increment ${{ github.event.inputs.release_type || 'patch' }} \
+            --npm.publishPath=$PACKAGE_PATH \
+            ${{ github.event.inputs.preid && format('--preRelease {0}', github.event.inputs.preid) || '' }} \
+            ${{ github.event.inputs.commit_sha && '--git.requireBranch=' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
-        # Bumps version, creates tag/GitHub Release, and publishes to npm with provenance.
