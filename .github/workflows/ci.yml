@@ -120,12 +120,9 @@ jobs:
       - name: Run release-it (Git operations only)
         run: |
           pnpm release-it --ci \
-            --npm.publish=false \
             --increment ${{ github.event.inputs.release_type || 'patch' }} \
             ${{ github.event.inputs.preid && format('--preRelease {0}', github.event.inputs.preid) || '' }} \
             ${{ github.event.inputs.commit_sha && '--git.requireBranch=' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish to npm
-        run: npm publish --provenance
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
