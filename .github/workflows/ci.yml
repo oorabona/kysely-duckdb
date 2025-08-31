@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       release_type:
-        description: 'Semver increment (patch, minor, major, prerelease, from-git)'
+        description: 'Semver increment (patch, minor, major, prerelease)'
         type: choice
         default: patch
-        options: [patch, minor, major, prerelease, from-git]
+        options: [patch, minor, major, prerelease]
       preid:
         description: 'Pre-release identifier (e.g., rc, beta)'
         type: string
@@ -27,7 +27,8 @@ concurrency:
 
 jobs:
   validate:
-    # ✅ CHANGE: Renamed from lint/test to a single validation stage
+    # ✅ FIX: Ne s'exécute que sur push/PR, pas sur le dispatch de release
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     name: Validate (Lint, Test)
     steps:
@@ -48,13 +49,12 @@ jobs:
           files: ./coverage/coverage-final.json
           fail_ci_if_error: false
 
-  build_and_pack:
-    # ✅ CHANGE: This job now builds AND creates the final package artifact
+  build:
+    # ✅ FIX: Only runs on push/PR
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
-    name: Build & Pack
+    name: Build
     needs: [validate]
-    # ✅ CHANGE: Only run on main branch pushes to create release candidates
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -64,17 +64,17 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
-      - name: Pack tarball
-        run: pnpm pack --pack-destination ./artifact
-      - name: Upload package artifact
+      # ✅ FIX: We upload the `dist` folder, not a tarball
+      - name: Upload dist artifact
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
-          name: package-${{ github.sha }}
-          path: ./artifact/*.tgz
+          name: dist-${{ github.sha }}
+          path: ./dist
           retention-days: 30
 
   release:
-    # ✅ CHANGE: This job is now extremely lightweight
+    # ✅ FIX: This job is now independent of the others
     runs-on: ubuntu-latest
     name: Release
     if: github.event_name == 'workflow_dispatch'
@@ -95,36 +95,36 @@ jobs:
           cache: 'pnpm'
           registry-url: https://registry.npmjs.org/
 
-      # ✅ CHANGE: Only install dependencies needed for release-it
       - run: pnpm install --frozen-lockfile
 
-      - name: Download package artifact
-        id: download
+      - name: Download dist artifact
         uses: dawidd6/action-download-artifact@v6
         with:
           workflow: ci.yml
           commit: ${{ github.event.inputs.commit_sha || github.sha }}
-          name: package-${{ github.event.inputs.commit_sha || github.sha }}
-          path: ./release-package
+          name: dist-${{ github.event.inputs.commit_sha || github.sha }}
+          path: ./dist 
           workflow_conclusion: success
 
-      # ✅ CHANGE: release-it now publishes the downloaded tarball
-      - name: Release with release-it
+      - name: Verify dist artifact
         run: |
-          PACKAGE_PATH=$(find ./release-package -name "*.tgz")
-          if [ -z "$PACKAGE_PATH" ]; then
-            echo "Error: Package tarball not found."
+          if [ ! -f "./dist/index.js" ]; then
+            echo "Error: dist/index.js not found in artifact."
             exit 1
           fi
-          echo "Package to publish: $PACKAGE_PATH"
+          echo "✓ dist artifact is valid."
 
-          # release-it will handle git tag, commit, GitHub Release,
-          # and then call `npm publish` on the tarball.
+      # ✅ FIX: Run release-it without rebuilding or publishing
+      - name: Run release-it (Git operations only)
+        run: |
           pnpm release-it --ci \
+            --no-npm \
             --increment ${{ github.event.inputs.release_type || 'patch' }} \
-            --npm.publishPath=$PACKAGE_PATH \
             ${{ github.event.inputs.preid && format('--preRelease {0}', github.event.inputs.preid) || '' }} \
             ${{ github.event.inputs.commit_sha && '--git.requireBranch=' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_CONFIG_PROVENANCE: true
+
+      # ✅ FIX: Publish to npm with provenance
+      - name: Publish to npm
+        run: npm publish --provenance
