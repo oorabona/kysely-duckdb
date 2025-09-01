@@ -66,34 +66,37 @@ async function main() {
   const database = await DuckDBInstance.create(':memory:')
 
   // Create Kysely instance with external data mappings
-  const db = new Kysely<ExternalDataSchema>({
-    dialect: new DuckDbDialect({
-      database,
-      tableMappings: {
-        // Map CSV file as a table
-        users: {
-          source: './sample_users.csv',
-          options: {
-            header: true,
-            delim: ',',
-            auto_detect: true
-          }
+  const dialect = new DuckDbDialect({
+    database,
+    tableMappings: {
+      // Map CSV file as a table
+      users: {
+        source: './sample_users.csv',
+        options: {
+          header: true,
+          delim: ',',
+          auto_detect: true,
         },
-        
-        // Map NDJSON file as a table
-        orders: {
-          source: './sample_orders.ndjson',
-          options: {
-            format: 'newline_delimited',
-            auto_detect: true
-          }
-        }
-      }
-    })
+      },
+
+      // Map NDJSON file as a table
+      orders: {
+        source: './sample_orders.ndjson',
+        options: {
+          format: 'newline_delimited',
+          auto_detect: true,
+        },
+      },
+    },
   })
+
+  const db = new Kysely<ExternalDataSchema>({ dialect })
 
   try {
     console.log('\n📊 External Data Integration Demo\n')
+
+    // Ensure external table mappings are created before querying
+    await dialect.setupTableMappings(db)
 
     // 1. Query CSV file directly
     console.log('1. Users from CSV file:')

@@ -115,6 +115,7 @@ async function demonstrateCaseConverterPlugin() {
     const insertedUser = await db
       .insertInto('user_profiles')
       .values({
+        id: 1,
         first_name: 'John',
         last_name: 'Doe',
         email_address: 'john.doe@example.com',
@@ -192,6 +193,7 @@ async function demonstrateLoggingPlugins() {
       .insertInto('blog_posts')
       .values([
         {
+          id: 1,
           post_title: 'Introduction to DuckDB',
           post_content: 'DuckDB is an amazing analytical database...',
           author_id: 1,
@@ -199,6 +201,7 @@ async function demonstrateLoggingPlugins() {
           view_count: 150
         },
         {
+          id: 2,
           post_title: 'Advanced SQL Techniques',
           post_content: 'In this post we explore advanced SQL patterns...',
           author_id: 1,
@@ -206,6 +209,7 @@ async function demonstrateLoggingPlugins() {
           view_count: 89
         },
         {
+          id: 3,
           post_title: 'Draft Post',
           post_content: 'This is still a draft...',
           author_id: 1,
@@ -261,9 +265,9 @@ async function demonstrateCustomPlugins() {
     await db
       .insertInto('user_profiles')
       .values([
-        { first_name: 'Alice', last_name: 'Johnson', email_address: 'alice@example.com' },
-        { first_name: 'Bob', last_name: 'Smith', email_address: 'bob@example.com' },
-        { first_name: 'Carol', last_name: 'Williams', email_address: 'carol@example.com' }
+        { id: 1, first_name: 'Alice', last_name: 'Johnson', email_address: 'alice@example.com' },
+        { id: 2, first_name: 'Bob', last_name: 'Smith', email_address: 'bob@example.com' },
+        { id: 3, first_name: 'Carol', last_name: 'Williams', email_address: 'carol@example.com' }
       ])
       .execute()
 
@@ -331,9 +335,9 @@ async function demonstratePluginChaining() {
     await db
       .insertInto('user_profiles')
       .values([
-        { first_name: 'David', last_name: 'Chen', email_address: 'david@example.com', date_of_birth: new Date('1985-03-20') },
-        { first_name: 'Emma', last_name: 'Wilson', email_address: 'emma@example.com', date_of_birth: new Date('1992-07-15') },
-        { first_name: 'Frank', last_name: 'Brown', email_address: 'frank@example.com', date_of_birth: new Date('1988-11-30') }
+        { id: 1, first_name: 'David', last_name: 'Chen', email_address: 'david@example.com', date_of_birth: sql`'1985-03-20'::date` },
+        { id: 2, first_name: 'Emma', last_name: 'Wilson', email_address: 'emma@example.com', date_of_birth: sql`'1992-07-15'::date` },
+        { id: 3, first_name: 'Frank', last_name: 'Brown', email_address: 'frank@example.com', date_of_birth: sql`'1988-11-30'::date` }
       ])
       .execute()
 

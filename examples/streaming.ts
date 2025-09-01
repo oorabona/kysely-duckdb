@@ -288,7 +288,7 @@ async function demonstrateAggregationStreaming(db: Kysely<StreamingSchema>) {
   // Create aggregation target table
   await db.schema
     .createTable('processed_data')
-    .addColumn('id', 'integer', col => col.primaryKey().generatedAlwaysAsIdentity())
+    .addColumn('id', 'integer', col => col.primaryKey())
     .addColumn('category', 'varchar(50)')
     .addColumn('total_value', sql`decimal(15,2)`)
     .addColumn('avg_value', sql`decimal(10,2)`)
@@ -304,6 +304,7 @@ async function demonstrateAggregationStreaming(db: Kysely<StreamingSchema>) {
 
   console.log(`🔢 Processing aggregations for ${categories.length} categories...`)
 
+  let aggId = 1
   for (const { category } of categories) {
     const aggregation = await db
       .selectFrom('large_dataset')
@@ -319,6 +320,7 @@ async function demonstrateAggregationStreaming(db: Kysely<StreamingSchema>) {
     await db
       .insertInto('processed_data')
       .values({
+        id: aggId++,
         category: category,
         total_value: Number(aggregation.total_value),
         avg_value: Number(aggregation.avg_value),

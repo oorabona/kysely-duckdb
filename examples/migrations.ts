@@ -11,7 +11,6 @@ import {
   DuckDbDialect, 
   FileMigrationProvider,
   InMemoryMigrationProvider,
-  generateMigrationName,
   createMigrationTemplate,
   createTsMigrationTemplate
 } from '@oorabona/kysely-duckdb'
@@ -54,8 +53,22 @@ async function setupMigrationFiles() {
   // Create migrations directory
   await fs.mkdir(migrationsDir, { recursive: true })
 
+  // Helper: deterministic timestamp (YYYYMMDDHHmmss)
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  const formatTs = (d: Date) => {
+    const y = d.getFullYear()
+    const M = pad(d.getMonth() + 1)
+    const D = pad(d.getDate())
+    const h = pad(d.getHours())
+    const m = pad(d.getMinutes())
+    const s = pad(d.getSeconds())
+    return `${y}${M}${D}${h}${m}${s}`
+  }
+  const base = new Date()
+  const ts = (incSec: number) => formatTs(new Date(base.getTime() + incSec * 1000))
+
   // Migration 1: Create users table (SQL)
-  const migration1Name = generateMigrationName('create_users_table')
+  const migration1Name = `${ts(0)}_create_users_table`
   const migration1Content = `-- Migration: Create users table
 -- Created: ${new Date().toISOString()}
 
@@ -77,9 +90,12 @@ DROP TABLE users;`
   
   await fs.writeFile(join(migrationsDir, `${migration1Name}.sql`), migration1Content)
 
+  // Slight delay to ensure strictly increasing timestamps in filenames
+  await new Promise(r => setTimeout(r, 5))
+
   // Migration 2: Create posts table (TypeScript)
-  const migration2Name = generateMigrationName('create_posts_table')
-  const migration2Content = `import type { Kysely } from 'kysely'
+  const migration2Name = `${ts(1)}_create_posts_table`
+  const migration2Content = `import { sql, type Kysely } from 'kysely'
 
 /**
  * Create posts table with references to users
@@ -93,13 +109,16 @@ export async function up(db: Kysely<any>): Promise<void> {
     .addColumn('title', 'varchar(255)', col => col.notNull())
     .addColumn('content', 'text')
     .addColumn('author_id', 'integer', col => 
-      col.references('users.id').onDelete('cascade').notNull()
+      // DuckDB doesn't support ON DELETE CASCADE actions; use a basic FK reference
+      col.references('users.id').notNull()
     )
     .addColumn('status', 'varchar(20)', col => 
       col.defaultTo('draft').check(sql\`status IN ('draft', 'published', 'archived')\`)
     )
-    .addColumn('tags', 'varchar[]', col => col.defaultTo('{}'))
-    .addColumn('metadata', 'json', col => col.defaultTo('{}'))
+    // Use raw data type to bypass Kysely's data type parser for array suffix
+    .addColumn('tags', sql\`VARCHAR[]\`, col => col.defaultTo(sql\`[]::VARCHAR[]\`))
+    // Ensure JSON default is a typed JSON literal
+    .addColumn('metadata', 'json', col => col.defaultTo(sql\`'{}'::JSON\`))
     .addColumn('created_at', 'timestamp', col => col.defaultTo(sql\`CURRENT_TIMESTAMP\`))
     .addColumn('updated_at', 'timestamp', col => col.defaultTo(sql\`CURRENT_TIMESTAMP\`))
     .execute()
@@ -126,16 +145,19 @@ export async function down(db: Kysely<any>): Promise<void> {
   
   await fs.writeFile(join(migrationsDir, `${migration2Name}.ts`), migration2Content)
 
+  // Ensure next timestamp is greater
+  await new Promise(r => setTimeout(r, 5))
+
   // Migration 3: Create comments table (SQL)
-  const migration3Name = generateMigrationName('create_comments_table')
+  const migration3Name = `${ts(2)}_create_comments_table`
   const migration3Content = `-- Migration: Create comments table
 -- Created: ${new Date().toISOString()}
 
 -- migrate:up
 CREATE TABLE comments (
   id INTEGER PRIMARY KEY,
-  post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-  author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_id INTEGER NOT NULL REFERENCES posts(id),
+  author_id INTEGER NOT NULL REFERENCES users(id),
   content TEXT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -149,36 +171,28 @@ DROP TABLE comments;`
   
   await fs.writeFile(join(migrationsDir, `${migration3Name}.sql`), migration3Content)
 
+  // Ensure next timestamp is greater
+  await new Promise(r => setTimeout(r, 5))
+
   // Migration 4: Add updated_at trigger (SQL)
-  const migration4Name = generateMigrationName('add_updated_at_triggers')
-  const migration4Content = `-- Migration: Add updated_at triggers
+  const migration4Name = `${ts(3)}_add_updated_at_support`
+  const migration4Content = `-- Migration: Add updated_at support (DuckDB compatible)
 -- Created: ${new Date().toISOString()}
 
 -- migrate:up
--- Create trigger function to update updated_at column
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = CURRENT_TIMESTAMP;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- In DuckDB, triggers and user-defined trigger functions are not supported.
+-- We demonstrate adding an updated_at column if missing and backfilling values.
 
--- Add triggers to automatically update updated_at
-CREATE TRIGGER trigger_users_updated_at
-  BEFORE UPDATE ON users
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
+UPDATE users SET updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP);
 
-CREATE TRIGGER trigger_posts_updated_at
-  BEFORE UPDATE ON posts
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
+UPDATE posts SET updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP);
 
 -- migrate:down
-DROP TRIGGER IF EXISTS trigger_posts_updated_at ON posts;
-DROP TRIGGER IF EXISTS trigger_users_updated_at ON users;
-DROP FUNCTION IF EXISTS update_updated_at_column();`
+-- Remove the columns added above. Note: this will drop any existing data in them.
+ALTER TABLE posts DROP COLUMN IF EXISTS updated_at;
+ALTER TABLE users DROP COLUMN IF EXISTS updated_at;`
   
   await fs.writeFile(join(migrationsDir, `${migration4Name}.sql`), migration4Content)
 
@@ -319,6 +333,7 @@ async function demonstrateFileMigrations(db: Kysely<DatabaseSchema>) {
     const user = await db
       .insertInto('users')
       .values({
+        id: 1,
         name: 'John Doe',
         email: 'john@example.com'
       })
@@ -328,6 +343,7 @@ async function demonstrateFileMigrations(db: Kysely<DatabaseSchema>) {
     const post = await db
       .insertInto('posts')
       .values({
+        id: 1,
         title: 'My First Post',
         content: 'This is the content of my first post.',
         author_id: user.id,
@@ -341,6 +357,7 @@ async function demonstrateFileMigrations(db: Kysely<DatabaseSchema>) {
     await db
       .insertInto('comments')
       .values({
+        id: 1,
         post_id: post.id,
         author_id: user.id,
         content: 'Great first post!'
@@ -390,8 +407,21 @@ async function demonstrateMigrationUtilities() {
   console.log('\n🛠️  Migration Utilities Demo\n')
 
   // Generate migration names
-  const name1 = generateMigrationName('create users table')
-  const name2 = generateMigrationName('add-indexes-for-performance')
+  // Deterministic examples (for display only)
+  const fmt = (desc: string) => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const pad = (n: number) => n.toString().padStart(2, '0')
+    const M = pad(now.getMonth() + 1)
+    const D = pad(now.getDate())
+    const h = pad(now.getHours())
+    const m = pad(now.getMinutes())
+    const s = pad(now.getSeconds())
+    const slug = desc.toLowerCase().replace(/[^a-z0-9]/g, '_')
+    return `${y}${M}${D}${h}${m}${s}_${slug}`
+  }
+  const name1 = fmt('create users table')
+  const name2 = fmt('add-indexes-for-performance')
   
   console.log('📝 Generated migration names:')
   console.log(`  - ${name1}`)

@@ -3,7 +3,8 @@
  */
 
 import { promises as fs } from 'node:fs'
-import { extname, join } from 'node:path'
+import { extname, join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { CompiledQuery, type Migration, type MigrationProvider } from 'kysely'
 
 /**
@@ -96,8 +97,10 @@ export class FileMigrationProvider implements MigrationProvider {
 
   async #loadJsMigration(filePath: string): Promise<Migration> {
     try {
-      // Dynamic import for ES modules
-      const migrationModule = await import(`file://${filePath}`)
+      // Dynamic import for ES modules using a normalized file URL
+      const absPath = resolve(filePath)
+      const url = pathToFileURL(absPath)
+      const migrationModule = await import(url.href)
 
       if (!migrationModule.up || typeof migrationModule.up !== 'function') {
         throw new Error(`Migration ${filePath} must export an 'up' function`)

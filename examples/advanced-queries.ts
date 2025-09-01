@@ -280,7 +280,8 @@ async function demonstrateWindowFunctions(db: Kysely<AdvancedSchema>) {
       eb => sql<number>`LAG(${eb.ref('sales.amount')}, 1) OVER (PARTITION BY ${eb.ref('sales.employee_id')} ORDER BY ${eb.ref('sales.sale_date')})`.as('previous_sale'),
       eb => sql<number>`LEAD(${eb.ref('sales.amount')}, 1) OVER (PARTITION BY ${eb.ref('sales.employee_id')} ORDER BY ${eb.ref('sales.sale_date')})`.as('next_sale')
     ])
-    .orderBy(['employees.name', 'sales.sale_date'])
+    .orderBy('employees.name')
+    .orderBy('sales.sale_date')
     .execute()
 
   console.table(salesTrends)
@@ -513,7 +514,7 @@ async function demonstrateAnalyticalFunctions(db: Kysely<AdvancedSchema>) {
       FROM monthly_sales
     )
     SELECT 
-      TO_CHAR(month, 'YYYY-MM') as month,
+      strftime('%Y-%m', month) as month,
       total_sales,
       sale_count,
       avg_sale_size,
@@ -630,6 +631,7 @@ async function demonstrateComplexDataTypes(db: Kysely<AdvancedSchema>) {
     WITH employee_skills AS (
       SELECT 
         name,
+        department,
         CASE 
           WHEN department = 'Engineering' THEN ['Python', 'SQL', 'JavaScript', 'Git', 'Docker']
           WHEN department = 'Sales' THEN ['CRM', 'Negotiation', 'Presentation', 'Excel']
@@ -640,13 +642,13 @@ async function demonstrateComplexDataTypes(db: Kysely<AdvancedSchema>) {
       FROM employees
     )
     SELECT 
-      name,
-      skills,
-      array_length(skills) as skill_count,
-      array_contains(skills, 'SQL') as has_sql,
-      array_filter(skills, skill -> skill IN ('Python', 'SQL', 'JavaScript', 'Git', 'Docker')) as tech_skills
-    FROM employee_skills
-    WHERE department = 'Engineering'
+      es.name,
+      es.skills,
+      array_length(es.skills) as skill_count,
+      array_contains(es.skills, 'SQL') as has_sql,
+      array_filter(es.skills, skill -> skill IN ('Python', 'SQL', 'JavaScript', 'Git', 'Docker')) as tech_skills
+    FROM employee_skills es
+    WHERE es.department = 'Engineering'
   `.execute(db)
 
   console.table(arrayOps.rows)

@@ -205,7 +205,19 @@ async function demonstrateIndexing(db: Kysely<PerformanceSchema>) {
   const timeWithIndex = Date.now() - startTimeWithIndex
   console.log(`⏱️  Query time with index: ${timeWithIndex}ms`)
   console.log(`📊 Found ${resultWithIndex.length} records`)
-  console.log(`🚀 Performance improvement: ${Math.round((timeWithoutIndex - timeWithIndex) / timeWithoutIndex * 100)}%`)
+
+  // Report improvement robustly: show speedup when faster, slowdown when slower
+  if (timeWithIndex < timeWithoutIndex) {
+    const improvementPct = Math.round(((timeWithoutIndex - timeWithIndex) / timeWithoutIndex) * 100)
+    const speedup = (timeWithoutIndex / Math.max(1, timeWithIndex)).toFixed(2)
+    console.log(`🚀 Improvement: ${improvementPct}% faster (${speedup}x speedup)`) 
+  } else if (timeWithIndex > timeWithoutIndex) {
+    const slowdownPct = Math.round(((timeWithIndex - timeWithoutIndex) / timeWithoutIndex) * 100)
+    const slowdown = (timeWithIndex / Math.max(1, timeWithoutIndex)).toFixed(2)
+    console.log(`ℹ️  Index did not help here: ${slowdownPct}% slower (${slowdown}x)`) 
+  } else {
+    console.log('ℹ️  No observed difference with/without index')
+  }
 
   // 4. Query plan analysis
   console.log('\n4. Query plan analysis:')
@@ -409,20 +421,29 @@ async function demonstrateMemoryOptimization(db: Kysely<PerformanceSchema>) {
     max_value: number
     rolling_avg: number
   }>`
+    WITH daily AS (
+      SELECT 
+        DATE(timestamp) AS date,
+        metric_name,
+        AVG(value) AS avg_value,
+        MIN(value) AS min_value,
+        MAX(value) AS max_value
+      FROM time_series
+      WHERE timestamp >= '2024-01-01'
+      GROUP BY DATE(timestamp), metric_name
+    )
     SELECT 
-      DATE(timestamp) as date,
+      date,
       metric_name,
-      ROUND(AVG(value), 2) as avg_value,
-      ROUND(MIN(value), 2) as min_value,
-      ROUND(MAX(value), 2) as max_value,
-      ROUND(AVG(value) OVER (
-        PARTITION BY metric_name 
-        ORDER BY DATE(timestamp) 
+      ROUND(avg_value, 2) AS avg_value,
+      ROUND(min_value, 2) AS min_value,
+      ROUND(max_value, 2) AS max_value,
+      ROUND(AVG(avg_value) OVER (
+        PARTITION BY metric_name
+        ORDER BY date
         ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
-      ), 2) as rolling_avg
-    FROM time_series
-    WHERE timestamp >= '2024-01-01'
-    GROUP BY DATE(timestamp), metric_name
+      ), 2) AS rolling_avg
+    FROM daily
     ORDER BY metric_name, date
     LIMIT 50
   `.execute(db)

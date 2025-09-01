@@ -231,14 +231,15 @@ async function main() {
     // 1. Vector similarity search
     console.log('1. Find similar documents using cosine similarity:')
     const queryEmbedding = [0.2, 0.7, 0.4, 0.5, 0.3]
+    const queryVecExpr = sql`ARRAY[${sql.raw(queryEmbedding.join(', '))}]::DOUBLE[]`
     
     const vectorQuery1 = await db
       .selectFrom('documents')
       .select([
         'title',
         'embedding',
-        sql`array_cosine_similarity(embedding, ${JSON.stringify(queryEmbedding)}::DOUBLE[])`.as('similarity'),
-        sql`array_cosine_distance(embedding, ${JSON.stringify(queryEmbedding)}::DOUBLE[])`.as('distance')
+        VectorFunctions.cosineSimilarity(sql`embedding`, queryVecExpr).as('similarity'),
+        VectorFunctions.cosineDistance(sql`embedding`, queryVecExpr).as('distance')
       ])
       .orderBy('similarity', 'desc')
       .execute()
@@ -251,9 +252,9 @@ async function main() {
       .selectFrom('documents')
       .select([
         'title',
-        sql`array_distance(embedding, ${JSON.stringify(queryEmbedding)}::DOUBLE[])`.as('euclidean_distance'),
-        sql`array_distance(embedding, ${JSON.stringify(queryEmbedding)}::DOUBLE[])`.as('manhattan_distance'),
-        sql`array_dot_product(embedding, ${JSON.stringify(queryEmbedding)}::DOUBLE[])`.as('dot_product')
+        VectorFunctions.l2Distance(sql`embedding`, queryVecExpr).as('euclidean_distance'),
+        VectorFunctions.l1Distance(sql`embedding`, queryVecExpr).as('manhattan_distance'),
+        VectorFunctions.dotProduct(sql`embedding`, queryVecExpr).as('dot_product')
       ])
       .execute()
     
@@ -265,9 +266,9 @@ async function main() {
       .selectFrom('documents')
       .select([
         'title',
-        sql`array_magnitude(embedding)`.as('magnitude'),
-        sql`array_length(embedding)`.as('dimensions'),
-        sql`array_normalize(embedding)`.as('normalized')
+        VectorFunctions.vectorMagnitude(sql`embedding`).as('magnitude'),
+        VectorFunctions.vectorDims(sql`embedding`).as('dimensions'),
+        VectorFunctions.normalize(sql`embedding`).as('normalized')
       ])
       .where('id', '=', 1)
       .execute()
@@ -283,8 +284,8 @@ async function main() {
       .select([
         'title',
         'embedding as original',
-        sql`array_add(embedding, ${JSON.stringify(addVector)}::DOUBLE[])`.as('added'),
-        sql`array_mul(embedding, 2.0::DOUBLE)`.as('doubled')
+        VectorFunctions.vectorAdd(sql`embedding`, sql`ARRAY[${sql.raw(addVector.join(', '))}]::DOUBLE[]`).as('added'),
+        VectorFunctions.vectorMultiply(sql`embedding`, 2.0).as('doubled')
       ])
       .where('id', '=', 1)
       .execute()
@@ -297,8 +298,8 @@ async function main() {
       zero_vector: number[]
       random_vector: number[]
     }>`SELECT 
-        array_fill(0.0, 5)::DOUBLE[] as zero_vector,
-        array_random(3)::DOUBLE[] as random_vector
+        ${VectorFunctions.zeroVector(5)}::DOUBLE[] as zero_vector,
+        ${VectorFunctions.randomVector(3)}::DOUBLE[] as random_vector
     `.execute(db)
     
     console.table(utilityQuery.rows)
@@ -316,7 +317,7 @@ async function main() {
         'title',
         sql`json_extract(metadata, '$.author')`.as('author'),
         sql`json_extract(metadata, '$.category')`.as('category'),
-        sql`array_cosine_similarity(embedding, ${JSON.stringify(queryEmbedding)}::DOUBLE[])`.as('similarity')
+        VectorFunctions.cosineSimilarity(sql`embedding`, queryVecExpr).as('similarity')
       ])
       .where(sql`json_extract(metadata, '$.rating')`, '>', 4.7)
       .where(sql`json_contains(metadata, '"Technology"')`, '=', true)
