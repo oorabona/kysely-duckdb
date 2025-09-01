@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.1] - 2025-09-01
+
 - refactor: improve regex for extracting changelog entries to handle subsections and edge cases
 - release-it should now be 100% working
 
@@ -124,5 +126,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 *For more details, see the [full documentation](README.md) and [examples](examples/).*
-[Unreleased]: git+https://github.com/oorabona/kysely-duckdb.git/compare/v0.3.0...HEAD
+[Unreleased]: git+https://github.com/oorabona/kysely-duckdb.git/compare/v0.3.1...HEAD
 [v0.3.0]: git+https://github.com/oorabona/kysely-duckdb.git/releases/tag/v0.3.0
+[v0.3.1]: git+https://github.com/oorabona/kysely-duckdb.git/releases/tag/v0.3.1
