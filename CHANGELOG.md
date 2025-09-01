@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.0] - 2025-09-01
+
 - feat: add SERIAL-like auto-increment example and enhance README with new examples
 - refactor: improve performance reporting in examples and update migration scripts for DuckDB compatibility
 - fix: ensure external data mappings are set up before querying in external-data example
@@ -130,6 +132,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 *For more details, see the [full documentation](README.md) and [examples](examples/).*
-[Unreleased]: git+https://github.com/oorabona/kysely-duckdb.git/compare/v0.3.1...HEAD
+[Unreleased]: git+https://github.com/oorabona/kysely-duckdb.git/compare/v0.4.0...HEAD
 [v0.3.0]: git+https://github.com/oorabona/kysely-duckdb.git/releases/tag/v0.3.0
 [v0.3.1]: git+https://github.com/oorabona/kysely-duckdb.git/releases/tag/v0.3.1
+[v0.4.0]: git+https://github.com/oorabona/kysely-duckdb.git/releases/tag/v0.4.0
