@@ -67,10 +67,11 @@
     "examples:plugins": "pnpm tsx examples/plugins.ts",
     "examples:streaming": "pnpm tsx examples/streaming.ts",
     "examples:advanced": "pnpm tsx examples/advanced-queries.ts",
+    "examples:serial": "pnpm tsx examples/serial.ts",
     "examples:performance": "pnpm tsx examples/performance.ts",
     "examples:monitoring": "pnpm tsx examples/performance-monitoring.ts",
     "examples:logging": "pnpm tsx examples/native-logging.ts",
-    "examples:all": "pnpm run examples:basic && pnpm run examples:external && pnpm run examples:extensions && pnpm run examples:migrations && pnpm run examples:plugins && pnpm run examples:streaming && pnpm run examples:advanced && pnpm run examples:performance && pnpm run examples:monitoring && pnpm run examples:logging",
+    "examples:all": "pnpm run examples:basic && pnpm run examples:external && pnpm run examples:extensions && pnpm run examples:migrations && pnpm run examples:plugins && pnpm run examples:streaming && pnpm run examples:advanced && pnpm run examples:serial && pnpm run examples:performance && pnpm run examples:monitoring && pnpm run examples:logging",
     "build:examples": "pnpm tsc --noEmit --project examples/tsconfig.json"
   },
   "dependencies": {

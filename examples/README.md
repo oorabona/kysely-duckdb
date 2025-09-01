@@ -11,6 +11,9 @@ pnpm install
 # Run a specific example
 pnpm tsx examples/basic-usage.ts
 
+# Run all examples
+pnpm run examples:all
+
 # Build all examples (TypeScript check)
 pnpm build:examples
 ```
@@ -100,7 +103,17 @@ pnpm build:examples
 
 ---
 
-### 📈 [Performance](./performance.ts)
+### � [SERIAL-like Auto-Increment](./serial.ts)
+**What it demonstrates:** Emulating SERIAL/IDENTITY with DuckDB
+- Creating a SEQUENCE
+- Using DEFAULT nextval('sequence') on primary keys
+- Inserting without specifying ids
+
+**Key concepts:** DuckDB does not have auto_increment, use next_val
+
+---
+
+### �📈 [Performance](./performance.ts)
 **What it demonstrates:** Optimization and monitoring
 - Performance monitoring and profiling
 - Query optimization techniques
@@ -166,6 +179,31 @@ const db = new Kysely({
 // ❌ Avoid custom logger plugins (removed for native approach)
 plugins: [new LoggerPlugin()]
 ```
+
+## DuckDB specifics that matter here
+
+- Foreign keys: ON DELETE CASCADE is not supported. Use plain REFERENCES and handle deletions in application logic.
+- Primary keys: INTEGER PRIMARY KEY is not auto-generated. Insert explicit ids (as done in examples) or manage sequences in your app.
+- Arrays:
+  - Define columns via raw type: addColumn('tags', sql`VARCHAR[]`).
+  - Insert with ARRAY[...] and casts when needed, e.g. sql`ARRAY['a','b']::VARCHAR[]`.
+  - For defaults, prefer typed literals: defaultTo(sql`[]::VARCHAR[]`).
+- JSON:
+  - Default values should be typed: defaultTo(sql`'{}'::JSON`).
+  - Extract with json_extract; for filtering/sorting, cast to the right type if needed.
+- Dates/Timestamps:
+  - Prefer ISO strings ('YYYY-MM-DD') or explicit casts like sql`'2024-01-15'::date`.
+  - Avoid passing new Date(...) directly to inserts; casting avoids binder ambiguities.
+- UUID results:
+  - By default, result rows keep native DuckDB UUID values.
+  - To stringify automatically: new DuckDbDialect({ database, uuidAsString: true }).
+- External data:
+  - Call dialect.setupTableMappings(db) before querying external CSV/JSON/Parquet views.
+- Streaming:
+  - Results are read in chunks using DuckDB's streaming API; design pipelines without relying on identity/trigger side-effects.
+- Migrations:
+  - File-based generator uses strictly increasing timestamps for deterministic order.
+  - TS migrations import sql from 'kysely' and avoid ON DELETE CASCADE; array/JSON defaults are typed as above.
 
 ## File Organization
 
