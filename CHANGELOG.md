@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- refactor: improve regex for extracting changelog entries to handle subsections and edge cases
+- release-it should now be 100% working
+
 ## [v0.3.0] - 2025-08-31
 
 ### Added
