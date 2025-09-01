@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- feat: add SERIAL-like auto-increment example and enhance README with new examples
+- refactor: improve performance reporting in examples and update migration scripts for DuckDB compatibility
+- fix: ensure external data mappings are set up before querying in external-data example
+
 ## [v0.3.1] - 2025-09-01
 
 - refactor: improve regex for extracting changelog entries to handle subsections and edge cases
