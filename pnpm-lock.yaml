@@ -18,6 +18,9 @@ importers:
       '@biomejs/biome':
         specifier: ^2.2.4
         version: 2.2.4
+      '@oorabona/release-it-preset':
+        specifier: ^0.4.0
+        version: 0.4.0(release-it@19.0.5(@types/node@24.6.0)(magicast@0.3.5))
       '@types/node':
         specifier: ^24.6.0
         version: 24.6.0
@@ -536,6 +539,13 @@ packages:
 
   '@octokit/types@15.0.0':
     resolution: {integrity: sha512-8o6yDfmoGJUIeR9OfYU0/TUJTnMPG2r68+1yEdUeG2Fdqpj8Qetg0ziKIgcBm0RW/j29H41WP37CYCEhp6GoHQ==}
+
+  '@oorabona/release-it-preset@0.4.0':
+    resolution: {integrity: sha512-UocWd64PlOb0xHRK3NJLpV9TLYKnZOiCfEBwMH/aDkK1tzFvogb8EZat8m46ugH5i11y+5yLa9/a8ky/94YCaQ==}
+    engines: {node: '>=18.0.0'}
+    hasBin: true
+    peerDependencies:
+      release-it: ^19.0.0
 
   '@phun-ky/typeof@2.0.3':
     resolution: {integrity: sha512-oeQJs1aa8Ghke8JIK9yuq/+KjMiaYeDZ38jx7MhkXncXlUKjqQ3wEm2X3qCKyjo+ZZofZj+WsEEiqkTtRuE2xQ==}
@@ -2163,6 +2173,10 @@ snapshots:
   '@octokit/types@15.0.0':
     dependencies:
       '@octokit/openapi-types': 26.0.0
+
+  '@oorabona/release-it-preset@0.4.0(release-it@19.0.5(@types/node@24.6.0)(magicast@0.3.5))':
+    dependencies:
+      release-it: 19.0.5(@types/node@24.6.0)(magicast@0.3.5)
 
   '@phun-ky/typeof@2.0.3': {}
 

@@ -57,8 +57,6 @@
     "typecheck:tests": "tsc --noEmit -p tsconfig.tests.json",
     "clean": "rimraf dist",
     "prepare": "simple-git-hooks",
-    "release": "pnpm release-it",
-    "release:ci": "pnpm release-it --ci",
     "examples": "pnpm run examples:basic",
     "examples:basic": "pnpm tsx examples/basic-usage.ts",
     "examples:external": "pnpm tsx examples/external-data.ts",
@@ -72,7 +70,11 @@
     "examples:monitoring": "pnpm tsx examples/performance-monitoring.ts",
     "examples:logging": "pnpm tsx examples/native-logging.ts",
     "examples:all": "pnpm run examples:basic && pnpm run examples:external && pnpm run examples:extensions && pnpm run examples:migrations && pnpm run examples:plugins && pnpm run examples:streaming && pnpm run examples:advanced && pnpm run examples:serial && pnpm run examples:performance && pnpm run examples:monitoring && pnpm run examples:logging",
-    "build:examples": "pnpm tsc --noEmit --project examples/tsconfig.json"
+    "build:examples": "pnpm tsc --noEmit --project examples/tsconfig.json",
+    "release": "release-it-preset default",
+    "release:manual": "release-it-preset manual-changelog",
+    "release:hotfix": "release-it-preset hotfix",
+    "changelog:update": "release-it-preset update"
   },
   "dependencies": {
     "@duckdb/node-api": "1.4.0-r.1",
@@ -80,6 +82,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.4",
+    "@oorabona/release-it-preset": "^0.4.0",
     "@types/node": "^24.6.0",
     "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
