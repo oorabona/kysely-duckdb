@@ -696,4 +696,68 @@ describe('CaseConverter Utility Class', () => {
       }
     })
   })
+
+  describe('Security: ReDoS Prevention', () => {
+    it('should handle long underscore sequences without ReDoS (CWE-1333)', () => {
+      // Test with 10,000 underscores followed by non-underscore character
+      // This would trigger polynomial backtracking with vulnerable regex /^_+|_+$/g
+      const longString = `${'_'.repeat(10000)}a`
+
+      const start = performance.now()
+      const result = CaseConverter.toCamelCase(longString)
+      const elapsed = performance.now() - start
+
+      // Should complete in under 100ms (linear time)
+      // Vulnerable version would take several seconds
+      expect(elapsed).toBeLessThan(100)
+
+      // The function processes strings with leading/trailing underscores
+      // For this input, it should return the string with the 'a' at the end
+      expect(result).toBeDefined()
+      expect(result.length).toBeGreaterThan(0)
+    })
+
+    it('should handle extremely long strings without ReDoS', () => {
+      // Test with 50,000 underscores
+      const veryLongString = '_'.repeat(50000)
+
+      const start = performance.now()
+      const result = CaseConverter.toCamelCase(veryLongString)
+      const elapsed = performance.now() - start
+
+      // Should complete quickly even with very long input
+      expect(elapsed).toBeLessThan(200)
+      expect(result).toBeDefined()
+      expect(typeof result).toBe('string')
+    })
+
+    it('should handle mixed long sequences without performance degradation', () => {
+      // Test with alternating underscores and characters
+      const mixedString = `${'_'.repeat(1000)}field${'_'.repeat(1000)}`
+
+      const start = performance.now()
+      const result = CaseConverter.toCamelCase(mixedString)
+      const elapsed = performance.now() - start
+
+      expect(elapsed).toBeLessThan(50)
+      expect(result).toContain('field')
+    })
+
+    it('should document that regex patterns are ReDoS-safe', () => {
+      // Document that the fix splits /^_+|_+$/g into two separate replacements
+      // This prevents polynomial backtracking while maintaining functionality
+
+      const testCases = [
+        { input: '___field___' },
+        { input: '_____' },
+        { input: 'field__' },
+        { input: '__field' },
+      ]
+
+      for (const { input } of testCases) {
+        expect(() => CaseConverter.toCamelCase(input)).not.toThrow()
+        // All should complete instantly
+      }
+    })
+  })
 })

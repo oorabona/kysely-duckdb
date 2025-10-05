@@ -157,7 +157,11 @@ export function toCamelCase(str: string): string {
   }
 
   // Special case: string with only trailing underscores like 'field__'
-  if (str.replace(/^_+|_+$/g, '').indexOf('_') === -1) {
+  // Split into two separate replacements to avoid ReDoS vulnerability (CWE-1333)
+  // The pattern /^_+|_+$/g with global flag can cause polynomial backtracking
+  const withoutLeading = str.replace(/^_+/, '')
+  const withoutBoth = withoutLeading.replace(/_+$/, '')
+  if (withoutBoth.indexOf('_') === -1) {
     const trailingMatch = str.match(/_+$/)
     if (trailingMatch && trailingMatch[0].length > 1) {
       // Reduce trailing underscores by one: 'field__' -> 'field_'
