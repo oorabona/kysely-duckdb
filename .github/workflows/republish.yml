@@ -1,0 +1,171 @@
+name: Republish
+
+defaults:
+  run:
+    shell: bash
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to republish (e.g. 1.2.3)'
+        required: true
+        type: string
+      confirmation:
+        description: 'Type "I understand the risks" to confirm'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: republish-${{ github.event.inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  pre-flight:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.capture.outputs.version }}
+      tag: ${{ steps.capture.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate confirmation phrase
+        env:
+          INPUT_CONFIRMATION: ${{ github.event.inputs.confirmation }}
+        run: |
+          if [ "$INPUT_CONFIRMATION" != "I understand the risks" ]; then
+            echo "Invalid confirmation phrase" >&2
+            exit 1
+          fi
+
+      - name: Validate version format
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if ! echo "$INPUT_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$'; then
+            echo "Invalid semver: $INPUT_VERSION" >&2
+            exit 1
+          fi
+
+      - name: Verify tag exists
+        id: capture
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          TAG="v$INPUT_VERSION"
+          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG does not exist" >&2
+            exit 1
+          fi
+          echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Republishing $TAG"
+
+  build-dist:
+    needs: pre-flight
+    uses: oorabona/release-it-preset/.github/workflows/build-dist.yml@main
+    with:
+      artifact_name: republish-dist-${{ github.run_id }}
+      ref: ${{ github.sha }}
+
+  validate:
+    runs-on: ubuntu-latest
+    needs: [pre-flight, build-dist]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - name: Determine pnpm store path
+        id: pnpm-store
+        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm tsc --noEmit
+
+  republish:
+    runs-on: ubuntu-latest
+    needs: [pre-flight, build-dist, validate]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - name: Determine pnpm store path
+        id: pnpm-store
+        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Configure npm authentication
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-dist.outputs.artifact_name }}
+          path: dist
+
+      - name: Republish
+        env:
+          TARGET_VERSION: ${{ needs.pre-flight.outputs.version }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_PUBLISH: 'true'
+          GITHUB_RELEASE: 'true'
+        run: |
+          set -eo pipefail
+          pnpm release-it-preset republish --ci
+
+      - name: Summarize
+        run: |
+          echo "Republished v${{ needs.pre-flight.outputs.version }}"
+          echo "Tag: ${{ needs.pre-flight.outputs.tag }}"
+          echo "GitHub Release updated"
+          echo "npm package overwritten"

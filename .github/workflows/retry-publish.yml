@@ -1,0 +1,165 @@
+name: Retry Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Git tag to retry (defaults to latest tag)'
+        required: false
+        type: string
+      npm_only:
+        description: 'Publish to npm only'
+        required: false
+        type: boolean
+        default: false
+      github_only:
+        description: 'Publish to GitHub Releases only'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: retry-publish-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  determine-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.select-tag.outputs.tag }}
+      version: ${{ steps.select-tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select tag
+        id: select-tag
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -eo pipefail
+          TAG="$INPUT_TAG"
+          if [ -z "$TAG" ]; then
+            TAG=$(git describe --tags --abbrev=0 || true)
+          fi
+          if [ -z "$TAG" ]; then
+            echo "No git tag available to retry" >&2
+            exit 1
+          fi
+          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG does not exist" >&2
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "Retrying publish for tag $TAG"
+
+  build-dist:
+    needs: determine-tag
+    uses: oorabona/release-it-preset/.github/workflows/build-dist.yml@main
+    with:
+      artifact_name: retry-dist-${{ github.run_id }}
+      ref: ${{ needs.determine-tag.outputs.tag }}
+
+  retry:
+    runs-on: ubuntu-latest
+    needs: [determine-tag, build-dist]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.determine-tag.outputs.tag }}
+
+      - uses: pnpm/action-setup@v4
+
+      - name: Determine pnpm store path
+        id: pnpm-store
+        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-dist.outputs.artifact_name }}
+          path: dist
+
+      - name: Configure npm authentication
+        run: npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Run pre-flight checks
+        env:
+          RETRY_NPM_ONLY: ${{ github.event.inputs.npm_only }}
+          RETRY_GITHUB_ONLY: ${{ github.event.inputs.github_only }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eo pipefail
+          if [ "$RETRY_GITHUB_ONLY" = "true" ]; then
+            export NPM_PUBLISH=false
+          else
+            export NPM_PUBLISH=true
+          fi
+
+          if [ "$RETRY_NPM_ONLY" = "true" ]; then
+            export GITHUB_RELEASE=false
+          else
+            export GITHUB_RELEASE=true
+          fi
+
+          pnpm release-it-preset retry-publish --ci --dry-run
+
+      - name: Retry publish
+        env:
+          RETRY_NPM_ONLY: ${{ github.event.inputs.npm_only }}
+          RETRY_GITHUB_ONLY: ${{ github.event.inputs.github_only }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eo pipefail
+          if [ "$RETRY_GITHUB_ONLY" = "true" ]; then
+            export NPM_PUBLISH=false
+          else
+            export NPM_PUBLISH=true
+          fi
+
+          if [ "$RETRY_NPM_ONLY" = "true" ]; then
+            export GITHUB_RELEASE=false
+          else
+            export GITHUB_RELEASE=true
+          fi
+
+          pnpm release-it-preset retry-publish --ci
+
+      - name: Summary
+        run: |
+          echo "Tag: ${{ needs.determine-tag.outputs.tag }}"
+          echo "Version: ${{ needs.determine-tag.outputs.version }}"
+          if [ "${{ github.event.inputs.npm_only }}" = "true" ]; then
+            echo "Published to npm only"
+          elif [ "${{ github.event.inputs.github_only }}" = "true" ]; then
+            echo "Created GitHub Release only"
+          else
+            echo "Published to npm and GitHub"
+          fi

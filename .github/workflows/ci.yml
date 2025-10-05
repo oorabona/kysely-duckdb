@@ -21,16 +21,37 @@ jobs:
       ref: ${{ github.sha }}
     secrets: inherit
 
+  validate:
+    uses: oorabona/release-it-preset/.github/workflows/reusable-verify.yml@main
+    with:
+      base-ref: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+      head-ref: ${{ github.sha }}
+      run-tests: false
+      fetch-depth: 0
+    secrets: inherit
+
   tests:
     runs-on: ubuntu-latest
     name: Tests & Coverage
+    needs: [build-dist, validate]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
+      - name: Determine pnpm store path
+        id: pnpm-store
+        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run test:coverage
       - uses: codecov/codecov-action@v4

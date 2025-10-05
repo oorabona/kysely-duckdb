@@ -21,30 +21,30 @@ permissions:
   contents: write
   id-token: write
 
+concurrency:
+  group: hotfix-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
+  build-dist:
+    uses: oorabona/release-it-preset/.github/workflows/build-dist.yml@main
+    with:
+      artifact_name: hotfix-dist-${{ github.sha }}
+      ref: ${{ github.event.inputs.commit || github.sha }}
+
   validate:
-    runs-on: ubuntu-latest
-    name: Validate
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.commit || github.ref }}
-          fetch-depth: 0
-
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run typecheck
-      - run: pnpm run build
+    uses: oorabona/release-it-preset/.github/workflows/reusable-verify.yml@main
+    with:
+      base-ref: origin/main
+      head-ref: ${{ github.event.inputs.commit || github.sha }}
+      run-tests: false
+      fetch-depth: 0
+    secrets: inherit
 
   hotfix:
     runs-on: ubuntu-latest
     name: Hotfix Release
-    needs: [validate]
+    needs: [build-dist, validate]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,13 +52,30 @@ jobs:
           fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
+      - name: Determine pnpm store path
+        id: pnpm-store
+        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
           registry-url: https://registry.npmjs.org/
 
       - run: pnpm install --frozen-lockfile
+
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-dist.outputs.artifact_name }}
+          path: dist
 
       - name: Configure Git
         run: |
