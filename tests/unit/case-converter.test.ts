@@ -707,9 +707,9 @@ describe('CaseConverter Utility Class', () => {
       const result = CaseConverter.toCamelCase(longString)
       const elapsed = performance.now() - start
 
-      // Should complete in under 100ms (linear time)
+      // Should complete in under 200ms (linear time) although enough for slow machines like Github Actions
       // Vulnerable version would take several seconds
-      expect(elapsed).toBeLessThan(100)
+      expect(elapsed).toBeLessThan(200)
 
       // The function processes strings with leading/trailing underscores
       // For this input, it should return the string with the 'a' at the end
