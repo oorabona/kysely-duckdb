@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      increment:
+        description: 'Semver increment (patch, minor, major)'
+        type: choice
+        default: patch
+        options: [patch, minor, major]
+
+permissions:
+  contents: write
+  id-token: write
+  actions: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    name: Validate
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run build
+
+  release:
+    runs-on: ubuntu-latest
+    name: Create Release
+    needs: [validate]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          registry-url: https://registry.npmjs.org/
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Download dist artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: ci-new.yml
+          branch: main
+          name: dist-${{ github.sha }}
+          path: ./dist
+          workflow_conclusion: success
+
+      - name: Verify dist artifact
+        run: |
+          if [ ! -f "./dist/index.js" ]; then
+            echo "Error: dist/index.js not found in artifact."
+            exit 1
+          fi
+          echo "✓ dist artifact is valid."
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Update CHANGELOG
+        run: pnpm run changelog:update
+
+      - name: Validate release
+        run: pnpm run release-it --dry-run --increment ${{ github.event.inputs.increment }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run release-it
+        run: |
+          pnpm release-it --ci \
+            --increment ${{ github.event.inputs.increment }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,37 +1,29 @@
-name: CI & Release
-permissions:
-  contents: read
+name: CI
 
 on:
-  workflow_dispatch:
-    inputs:
-      release_type:
-        description: 'Semver increment (patch, minor, major, prerelease)'
-        type: choice
-        default: patch
-        options: [patch, minor, major, prerelease]
-      preid:
-        description: 'Pre-release identifier (e.g., rc, beta)'
-        type: string
-        required: false
-      commit_sha:
-        description: 'Commit SHA to release (defaults to HEAD of main)'
-        type: string
-        required: false
   push:
     branches: [main]
   pull_request:
     branches: [main]
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  validate:
-    if: github.event_name != 'workflow_dispatch'
+  build-dist:
+    uses: oorabona/release-it-preset/.github/workflows/build-dist.yml@main
+    with:
+      artifact_name: dist-${{ github.sha }}
+      ref: ${{ github.sha }}
+    secrets: inherit
+
+  tests:
     runs-on: ubuntu-latest
-    name: Validate (Lint, Test)
+    name: Tests & Coverage
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -40,91 +32,8 @@ jobs:
           node-version: 20
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run lint:check
-      - run: pnpm run format:check
-      - run: pnpm run typecheck
-      - run: pnpm run typecheck:tests
       - run: pnpm run test:coverage
       - uses: codecov/codecov-action@v4
         with:
           files: ./coverage/coverage-final.json
           fail_ci_if_error: false
-
-  build:
-    if: github.event_name != 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    name: Build
-    needs: [validate]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run build
-      - name: Upload dist artifact
-        if: github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-${{ github.sha }}
-          path: ./dist
-          retention-days: 30
-
-  release:
-    runs-on: ubuntu-latest
-    name: Release
-    if: github.event_name == 'workflow_dispatch'
-    permissions:
-      contents: write
-      id-token: write
-      actions: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.commit_sha || 'main' }}
-          fetch-depth: 0
-
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-          registry-url: https://registry.npmjs.org/
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Download dist artifact
-        uses: dawidd6/action-download-artifact@v6
-        with:
-          workflow: ci.yml
-          commit: ${{ github.event.inputs.commit_sha || github.sha }}
-          name: dist-${{ github.event.inputs.commit_sha || github.sha }}
-          path: ./dist
-          workflow_conclusion: success
-
-      - name: Verify dist artifact
-        run: |
-          if [ ! -f "./dist/index.js" ]; then
-            echo "Error: dist/index.js not found in artifact."
-            exit 1
-          fi
-          echo "✓ dist artifact is valid."
-
-      # ✅ FIX: Configure Git user for commit
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      # ✅ FIX: Use --npm.publish=false instead of --no-npm
-      - name: Run release-it (Git operations only)
-        run: |
-          pnpm release-it --ci \
-            --increment ${{ github.event.inputs.release_type || 'patch' }} \
-            ${{ github.event.inputs.preid && format('--preRelease {0}', github.event.inputs.preid) || '' }} \
-            ${{ github.event.inputs.commit_sha && '--git.requireBranch=' || '' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

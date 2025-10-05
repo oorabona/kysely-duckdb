@@ -1,0 +1,82 @@
+name: Hotfix
+
+on:
+  workflow_dispatch:
+    inputs:
+      increment:
+        description: 'Version increment (patch or minor for hotfix)'
+        type: choice
+        default: patch
+        options: [patch, minor]
+      commit:
+        description: 'Commit SHA to hotfix (optional, defaults to HEAD)'
+        type: string
+        required: false
+      dry_run:
+        description: 'Dry run (simulate without actually releasing)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    name: Validate
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.commit || github.ref }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run build
+
+  hotfix:
+    runs-on: ubuntu-latest
+    name: Hotfix Release
+    needs: [validate]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.commit || github.ref }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          registry-url: https://registry.npmjs.org/
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Display hotfix information
+        run: |
+          echo "🚨 **HOTFIX RELEASE**"
+          echo "Increment: ${{ github.event.inputs.increment }}"
+          echo "Commit: ${{ github.event.inputs.commit || 'HEAD' }}"
+          echo "Dry Run: ${{ github.event.inputs.dry_run }}"
+
+      - name: Run hotfix release
+        run: |
+          pnpm run release:hotfix \
+            --increment ${{ github.event.inputs.increment }} \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '--ci' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
