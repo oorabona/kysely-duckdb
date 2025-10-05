@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.1] - 2025-10-05
+
+### Fixed
+- **Security**: Fix ReDoS vulnerability (CWE-1333) in case converter regex pattern
+  - Replaced `/^_+|_+$/g` with two separate linear-time regex operations
+  - Prevents polynomial backtracking on long underscore sequences
+  - Performance improved from O(n²) to O(n) for edge cases
+
+### Changed
+- Updated Biome schema to 2.2.5
+
 ## [v0.5.0] - 2025-10-05
 
 ### Added

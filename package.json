@@ -1,6 +1,6 @@
 {
   "name": "@oorabona/kysely-duckdb",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Modern DuckDB dialect for Kysely with @duckdb/node-api",
   "keywords": [
     "kysely",
