@@ -85,7 +85,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Update CHANGELOG
-        run: pnpm run changelog:update
+        run: pnpm release-it-preset update
 
       - name: Validate release
         run: pnpm release-it-preset default --dry-run --increment ${{ github.event.inputs.increment }}

@@ -10,5 +10,89 @@ permissions:
 
 jobs:
   validate:
-    uses: oorabona/release-it-preset/.github/workflows/validate-pr.yml@main
+    uses: oorabona/release-it-preset/.github/workflows/reusable-verify.yml@main
+    with:
+      base-ref: origin/${{ github.base_ref }}
+      head-ref: ${{ github.sha }}
+      run-tests: false
+      fetch-depth: 0
     secrets: inherit
+
+  summarize:
+    name: Post Validation Summary
+    needs: validate
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Create or update summary comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const releaseValidation = '${{ needs.validate.outputs.release_validation }}' === 'true';
+            const changelogStatus = '${{ needs.validate.outputs.changelog_status }}';
+            const skipChangelog = '${{ needs.validate.outputs.skip_changelog }}' === 'true';
+            const conventionalCommits = '${{ needs.validate.outputs.conventional_commits }}' === 'true';
+            const commitsEncoded = '${{ needs.validate.outputs.commit_messages }}';
+            const commits = commitsEncoded ? JSON.parse(Buffer.from(commitsEncoded, 'base64').toString('utf8')) : [];
+
+            let summary = '## 📋 PR Validation Summary\n\n';
+
+            if (releaseValidation) {
+              summary += '✅ **Release validation**: Passed\n';
+            } else {
+              summary += '⚠️  **Release validation**: `pnpm release-it-preset validate --allow-dirty` reported issues (non-blocking)\n';
+            }
+
+            if (changelogStatus === 'updated') {
+              summary += '✅ **CHANGELOG**: Updated in this PR\n';
+            } else if (changelogStatus === 'skipped' || skipChangelog) {
+              summary += 'ℹ️  **CHANGELOG**: Skipped via `[skip-changelog]` marker\n';
+            } else {
+              summary += '⚠️  **CHANGELOG**: Not updated and no `[skip-changelog]` marker\n';
+              summary += '   - Update the changelog or include `[skip-changelog]` when intentionally skipping\n';
+            }
+
+            if (conventionalCommits) {
+              summary += '✅ **Conventional commits**: Detected\n';
+            } else {
+              summary += 'ℹ️  **Conventional commits**: Not detected\n';
+              summary += '   - Recommended format: `type(scope): description` (e.g., `feat(api): add endpoint`)\n';
+            }
+
+            if (commits.length) {
+              summary += '\n### Commits analysed\n';
+              for (const commit of commits) {
+                summary += `- ${commit}\n`;
+              }
+            }
+
+            summary += '\n---\n';
+            summary += 'These checks are advisory—merges are still allowed.\n\n';
+            summary += 'See https://github.com/oorabona/release-it-preset#best-practices for additional guidance.';
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user?.type === 'Bot' &&
+              comment.body?.includes('PR Validation Summary'),
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: summary,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: summary,
+              });
+            }

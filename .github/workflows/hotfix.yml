@@ -91,7 +91,7 @@ jobs:
 
       - name: Run hotfix release
         run: |
-          pnpm run release:hotfix \
+          pnpm release-it-preset hotfix \
             --increment ${{ github.event.inputs.increment }} \
             ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '--ci' }}
         env:
