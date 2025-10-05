@@ -4,42 +4,56 @@
  */
 /** biome-ignore-all lint/complexity/useLiteralKeys: contradicts biome error about index based access */
 
+import type { LoggerArgs } from '../types/duckdb-bindings.js'
+
 export interface Logger {
-  debug(...args: any[]): void
-  info(...args: any[]): void
-  warn(...args: any[]): void
-  error(...args: any[]): void
+  debug(...args: LoggerArgs): void
+  info(...args: LoggerArgs): void
+  warn(...args: LoggerArgs): void
+  error(...args: LoggerArgs): void
+}
+
+export interface LoggerOptions {
+  debugEnabled?: boolean
+  prefix?: string
 }
 
 class DuckDbLogger implements Logger {
   private readonly isDebugEnabled: boolean
+  private readonly prefix: string
 
-  constructor() {
+  constructor(options: LoggerOptions = {}) {
     this.isDebugEnabled =
-      process.env['NODE_ENV'] === 'development' ||
-      process.env['KYSELY_DEBUG'] === 'true' ||
-      process.env['KYSELY_DEBUG'] === '1'
+      options.debugEnabled ??
+      (process.env['NODE_ENV'] === 'development' ||
+        process.env['KYSELY_DEBUG'] === 'true' ||
+        process.env['KYSELY_DEBUG'] === '1')
+    this.prefix = options.prefix ?? '[KYSELY-DUCKDB]'
   }
 
-  debug(...args: any[]): void {
+  debug(...args: LoggerArgs): void {
     if (this.isDebugEnabled) {
-      console.log('[KYSELY-DUCKDB]', ...args)
+      console.log(this.prefix, ...args)
     }
   }
 
-  info(...args: any[]): void {
+  info(...args: LoggerArgs): void {
     if (this.isDebugEnabled) {
-      console.info('[KYSELY-DUCKDB]', ...args)
+      console.info(this.prefix, ...args)
     }
   }
 
-  warn(...args: any[]): void {
-    console.warn('[KYSELY-DUCKDB]', ...args)
+  warn(...args: LoggerArgs): void {
+    console.warn(this.prefix, ...args)
   }
 
-  error(...args: any[]): void {
-    console.error('[KYSELY-DUCKDB]', ...args)
+  error(...args: LoggerArgs): void {
+    console.error(this.prefix, ...args)
   }
 }
 
 export const logger = new DuckDbLogger()
+
+export function createLogger(options: LoggerOptions): Logger {
+  return new DuckDbLogger(options)
+}

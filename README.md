@@ -11,7 +11,8 @@ A modern DuckDB dialect for [Kysely](https://kysely.dev/) built with TypeScript 
 ## Features
 
 - 🦆 **Modern DuckDB Support**: Uses the latest `@duckdb/node-api` package (not the deprecated `duckdb` package)
-- 🔒 **Type Safety**: Full TypeScript support with comprehensive type definitions
+- 🔒 **Type Safety**: Full TypeScript support with comprehensive type definitions and strict typing (no `any` types)
+- ✅ **Input Validation**: Built-in Valibot schemas for runtime configuration validation
 - 🚀 **Performance**: Optimized for speed with an async engine and transaction-scoped connections (no pooling by default)
 - 🧩 **Extensions**: Built-in support for DuckDB extensions (JSON, Vector, Spatial)
 - 🔄 **Migrations**: Complete migration system with SQL and TypeScript support
@@ -20,6 +21,7 @@ A modern DuckDB dialect for [Kysely](https://kysely.dev/) built with TypeScript 
 - 📦 **External Data**: Direct querying of CSV, JSON, Parquet files without imports
 - 🧪 **Production Ready**: 100% test coverage with comprehensive integration tests
 - 📈 **Analytics Focused**: Optimized for OLAP workloads, data analytics, and ETL processes
+- 🪶 **Lightweight**: Minimal bundle impact with tree-shakeable Valibot validation (1-2 KB)
 
 ## Installation
 
@@ -433,6 +435,78 @@ See the [examples](./examples) directory for complete working examples:
 - [Advanced Queries](./examples/advanced-queries.ts) - CTEs, window functions, analytics
 - [Performance](./examples/performance.ts) - Optimization and monitoring
 - [Native Logging](./examples/native-logging.ts) - Built-in query logging
+
+## Security
+
+kysely-duckdb prioritizes security with multiple layers of protection:
+
+### SQL Injection Protection
+
+**Built-in Protection**: Kysely uses prepared statements with parameter binding, providing native protection against SQL injection attacks.
+
+```typescript
+// ✅ SAFE: Parameters are automatically bound
+const result = await db
+  .selectFrom('users')
+  .where('username', '=', userInput) // Safely parameterized
+  .execute()
+
+// ✅ SAFE: Template literals with sql`` also use parameters
+const query = sql`SELECT * FROM users WHERE id = ${userId}`
+```
+
+**Best Practices**:
+- Always use Kysely's query builder for user-controlled data
+- Use `sql.ref()` for dynamic identifiers (table/column names)
+- Avoid string concatenation for building queries
+
+### Input Validation
+
+**Runtime Validation**: Built-in Valibot schemas validate configuration at runtime:
+
+```typescript
+import { parse } from 'valibot'
+import { ConnectionConfigSchema } from '@oorabona/kysely-duckdb'
+
+// Validate configuration before use
+const config = parse(ConnectionConfigSchema, {
+  uuidAsString: true,
+  tableMappings: {
+    users: './data/users.csv'
+  }
+})
+```
+
+**Path Security**: When using table mappings with external files:
+
+```typescript
+// ⚠️ Application should validate file paths
+function validatePath(path: string): boolean {
+  // No parent directory traversal
+  if (path.includes('..')) return false
+
+  // Must be in allowed directory
+  const allowedDir = '/app/data'
+  if (!path.startsWith(allowedDir)) return false
+
+  return true
+}
+```
+
+### Security Testing
+
+Comprehensive security test suite covering:
+- SQL injection attempts (parameterized queries, UNION attacks, stacked queries)
+- Path traversal prevention
+- Unicode and special character handling
+- XSS prevention in stored data
+- Large input handling
+
+See `tests/security/` for detailed security test documentation.
+
+### Security Reporting
+
+If you discover a security vulnerability, please email security@example.com (or create a private security advisory on GitHub).
 
 ## Requirements
 

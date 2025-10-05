@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.0] - 2025-10-05
+
+### Added
+- **Input validation with Valibot**: Configuration validation schemas for enhanced type safety and runtime validation
+- **Strict TypeScript types**: Replaced 53 occurrences of `any` with proper types for improved type safety
+- **Externalized logger configuration**: `createLogger()` function with configurable debug mode and prefix
+- **Comprehensive security test suite**: 39 new security tests covering SQL injection, path traversal, and edge cases
+- **Security documentation**: Complete security section in README with best practices and examples
+
+### Changed
+- **Logger improvement**: Configuration now externalized with `LoggerOptions` interface supporting `debugEnabled` and `prefix` options
+- **Type safety**: Introduced `DuckDBUUIDConstructor`, `DuckDBUUIDObject`, `DuckDBColumnType`, and `LoggerArgs` types
+- **Bundle size optimization**: Added Valibot (1-2 KB) instead of heavier alternatives like Zod (14 KB)
+- **Test suite**: Expanded from 559 to 598 tests while maintaining 100% code coverage
+
+### Security
+- **Input validation**: Added validation schemas for connection configuration and table mappings
+- **Type safety**: Eliminated unsafe `any` types to prevent runtime type errors
+- **Security testing**: Comprehensive test suite documenting SQL injection protection, path validation, and input sanitization
+  - SQL injection prevention tests (13 tests)
+  - Path traversal and file access security (12 tests)
+  - Input validation edge cases (14 tests)
+
 ## [v0.4.1] - 2025-10-05
 
 ### Changed
@@ -147,8 +170,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 *For more details, see the [full documentation](README.md) and [examples](examples/).*
-[Unreleased]: https://github.com/oorabona/kysely-duckdb/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/oorabona/kysely-duckdb/compare/v0.5.0...HEAD
 [v0.3.0]: git+https://github.com/oorabona/kysely-duckdb.git/releases/tag/v0.3.0
 [v0.3.1]: git+https://github.com/oorabona/kysely-duckdb.git/releases/tag/v0.3.1
 [v0.4.0]: git+https://github.com/oorabona/kysely-duckdb.git/releases/tag/v0.4.0
 [v0.4.1]: https://github.com/oorabona/kysely-duckdb/releases/tag/v0.4.1
+[v0.5.0]: https://github.com/oorabona/kysely-duckdb/releases/tag/v0.5.0

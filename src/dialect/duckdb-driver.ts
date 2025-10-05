@@ -11,6 +11,11 @@ import { CompiledQuery, type QueryResult } from 'kysely'
 import { logger } from '../internal/logger.js'
 import { globalPerformanceMonitor } from '../internal/performance-monitor.js'
 import type { InternalDuckDbDialectConfig } from '../types/data-types.js'
+import type {
+  DuckDBColumnType,
+  DuckDBUUIDConstructor,
+  DuckDBUUIDObject,
+} from '../types/duckdb-bindings.js'
 
 // Precompute minimal UUID helpers at module scope to avoid per-call detection overhead
 // Note: DuckDBUUIDValue class is not always exposed by the runtime API
@@ -18,15 +23,22 @@ import type { InternalDuckDbDialectConfig } from '../types/data-types.js'
 /* c8 ignore start */
 /* v8 ignore start */
 // Disabled coverage as this is hard to test in CI
-type UUIDCtorType = new (...args: any[]) => object
-const UUIDCtor: UUIDCtorType | undefined =
-  typeof (DuckDBAPI as any).DuckDBUUIDValue === 'function'
-    ? ((DuckDBAPI as any).DuckDBUUIDValue as UUIDCtorType)
+const UUIDCtor: DuckDBUUIDConstructor | undefined =
+  typeof (DuckDBAPI as Record<string, unknown>)['DuckDBUUIDValue'] === 'function'
+    ? ((DuckDBAPI as Record<string, unknown>)['DuckDBUUIDValue'] as DuckDBUUIDConstructor)
     : undefined
 // Pending result ready state: try to read from runtime API, fallback to 0
 const RESULT_READY: number =
-  (DuckDBAPI as any).DuckDBPendingResultState?.RESULT_READY ??
-  (DuckDBAPI as any).PendingResultState?.RESULT_READY ??
+  (
+    (DuckDBAPI as Record<string, unknown>)['DuckDBPendingResultState'] as
+      | Record<string, number>
+      | undefined
+  )?.['RESULT_READY'] ??
+  (
+    (DuckDBAPI as Record<string, unknown>)['PendingResultState'] as
+      | Record<string, number>
+      | undefined
+  )?.['RESULT_READY'] ??
   0
 /* c8 ignore end */
 /* v8 ignore end */
@@ -44,7 +56,7 @@ function isDuckDBUUIDInstance(val: unknown): boolean {
 function tryHugeint(val: unknown): string | null {
   try {
     if (val && typeof val === 'object' && 'hugeint' in val) {
-      const hugeint = (val as { hugeint: any }).hugeint
+      const hugeint = (val as DuckDBUUIDObject).hugeint
       if (hugeint && typeof hugeint.toString === 'function') {
         const hexString = hugeint.toString(16).padStart(32, '0')
         const formatted = hexString.replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5')
@@ -210,17 +222,16 @@ function processRows(
   const columnNames = result.deduplicatedColumnNames()
 
   // DuckDB columnTypesJson() always returns an array - if not, there's a serious bug
-  const columnTypes = columnTypesRaw as unknown[]
+  const columnTypes = Array.isArray(columnTypesRaw)
+    ? (columnTypesRaw as unknown as DuckDBColumnType[])
+    : []
 
   // Create sets of column indices for efficient lookup
   const jsonColumnIndices = new Set(
     columnTypes
-      .map((type: unknown, idx: number) => {
+      .map((type: DuckDBColumnType, idx: number) => {
         // Type should be an object with alias property
-        if (type && typeof type === 'object' && 'alias' in type) {
-          return (type as { alias: string }).alias === 'JSON' ? idx : null
-        }
-        return null
+        return type.alias === 'JSON' ? idx : null
       })
       .filter((idx: number | null) => idx !== null),
   )
@@ -397,7 +408,7 @@ class DuckDbConnection implements DatabaseConnection {
         sql: compiledQuery.sql,
         duration,
         rowCount: result.rows.length,
-        parameters: [...compiledQuery.parameters],
+        parameters: compiledQuery.parameters.slice(),
       })
 
       return result
