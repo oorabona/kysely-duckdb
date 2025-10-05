@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.1] - 2025-10-05
+
+### Changed
+- upgrade all dependencies to their latest version ([a97d2b0](https://github.com/oorabona/kysely-duckdb/commit/a97d2b0))
+- update hotfix and release workflows to use release-it-preset commands for consistency ([cddbcf8](https://github.com/oorabona/kysely-duckdb/commit/cddbcf8))
+- update CI workflows to include validation and caching steps, and add retry publish functionality ([3891bdb](https://github.com/oorabona/kysely-duckdb/commit/3891bdb))
+- update CI workflows and add hotfix and release configurations ([ca6dcc4](https://github.com/oorabona/kysely-duckdb/commit/ca6dcc4))
+- remove outdated changelog scripts and update release configuration with @oorabona/release-it-preset ([48d34a7](https://github.com/oorabona/kysely-duckdb/commit/48d34a7))
+- version bumps of all deps to their latest versions ([763a2ce](https://github.com/oorabona/kysely-duckdb/commit/763a2ce))
+- add pnpm workspace configuration to specify only built dependencies ([8ebaab3](https://github.com/oorabona/kysely-duckdb/commit/8ebaab3))
+- bump @duckdb/node-api from 1.3.2-alpha.26 to 1.3.3 (#5) (deps) ([19a6025](https://github.com/oorabona/kysely-duckdb/commit/19a6025))
+- bump @duckdb/node-api from 1.3.2-alpha.26 to 1.3.3 (deps) ([9e47a6d](https://github.com/oorabona/kysely-duckdb/commit/9e47a6d))
+- bump @types/node from 22.18.0 to 24.3.0 (#2) (deps-dev) ([8d326af](https://github.com/oorabona/kysely-duckdb/commit/8d326af))
+- bump @types/node from 22.18.0 to 24.3.0 (deps-dev) ([3b1b167](https://github.com/oorabona/kysely-duckdb/commit/3b1b167))
+
 ## [v0.4.0] - 2025-09-01
 
 - feat: add SERIAL-like auto-increment example and enhance README with new examples
@@ -132,7 +147,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 *For more details, see the [full documentation](README.md) and [examples](examples/).*
-[Unreleased]: git+https://github.com/oorabona/kysely-duckdb.git/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/oorabona/kysely-duckdb/compare/v0.4.1...HEAD
 [v0.3.0]: git+https://github.com/oorabona/kysely-duckdb.git/releases/tag/v0.3.0
 [v0.3.1]: git+https://github.com/oorabona/kysely-duckdb.git/releases/tag/v0.3.1
 [v0.4.0]: git+https://github.com/oorabona/kysely-duckdb.git/releases/tag/v0.4.0
+[v0.4.1]: https://github.com/oorabona/kysely-duckdb/releases/tag/v0.4.1
