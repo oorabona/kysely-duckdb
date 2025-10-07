@@ -22,8 +22,8 @@ importers:
         specifier: ^2.2.5
         version: 2.2.5
       '@oorabona/release-it-preset':
-        specifier: ^0.6.0
-        version: 0.6.0(release-it@19.0.5(@types/node@24.6.2)(magicast@0.3.5))
+        specifier: ^0.9.0
+        version: 0.9.0(release-it@19.0.5(@types/node@24.6.2)(magicast@0.3.5))
       '@types/node':
         specifier: ^24.6.2
         version: 24.6.2
@@ -543,8 +543,8 @@ packages:
   '@octokit/types@15.0.0':
     resolution: {integrity: sha512-8o6yDfmoGJUIeR9OfYU0/TUJTnMPG2r68+1yEdUeG2Fdqpj8Qetg0ziKIgcBm0RW/j29H41WP37CYCEhp6GoHQ==}
 
-  '@oorabona/release-it-preset@0.6.0':
-    resolution: {integrity: sha512-hvaktS0sNToJsZrU4s8Bq5+08KI41q4PBj4jjwNlm3w+xQql452FW9FyRBqVC36HojWVkbjylXcF7GuuuvzagA==}
+  '@oorabona/release-it-preset@0.9.0':
+    resolution: {integrity: sha512-gnbmOrofL94UKMmb9gIZ7x2oUrCAsXowJNNp+Slpb0+I7hDzoPUwOWgFbn7CWcVu7IcFW+g3tCzdIwTWL5eZHQ==}
     engines: {node: '>=18.0.0'}
     hasBin: true
     peerDependencies:
@@ -2185,7 +2185,7 @@ snapshots:
     dependencies:
       '@octokit/openapi-types': 26.0.0
 
-  '@oorabona/release-it-preset@0.6.0(release-it@19.0.5(@types/node@24.6.2)(magicast@0.3.5))':
+  '@oorabona/release-it-preset@0.9.0(release-it@19.0.5(@types/node@24.6.2)(magicast@0.3.5))':
     dependencies:
       release-it: 19.0.5(@types/node@24.6.2)(magicast@0.3.5)
 
