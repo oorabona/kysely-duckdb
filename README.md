@@ -506,7 +506,7 @@ See `tests/security/` for detailed security test documentation.
 
 ### Security Reporting
 
-If you discover a security vulnerability, please email security@example.com (or create a private security advisory on GitHub).
+If you discover a security vulnerability, create a private security advisory on GitHub.
 
 ## Requirements
 
