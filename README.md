@@ -3,7 +3,7 @@
 [![CI](https://github.com/oorabona/kysely-duckdb/actions/workflows/ci.yml/badge.svg)](https://github.com/oorabona/kysely-duckdb/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/%40oorabona%2Fkysely-duckdb.svg)](https://www.npmjs.com/package/@oorabona/kysely-duckdb)
 [![Coverage](https://img.shields.io/badge/Coverage-100%25-brightgreen.svg)](https://github.com/oorabona/kysely-duckdb)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-blue.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9+-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A modern DuckDB dialect for [Kysely](https://kysely.dev/) built with TypeScript and the latest [@duckdb/node-api](https://www.npmjs.com/package/@duckdb/node-api).
@@ -22,6 +22,7 @@ A modern DuckDB dialect for [Kysely](https://kysely.dev/) built with TypeScript 
 - 🧪 **Production Ready**: 100% test coverage with comprehensive integration tests
 - 📈 **Analytics Focused**: Optimized for OLAP workloads, data analytics, and ETL processes
 - 🪶 **Lightweight**: Minimal bundle impact with tree-shakeable Valibot validation (1-2 KB)
+- 📊 **Observability**: Built-in performance monitor, query metrics formatter, and native logging helpers
 
 ## Installation
 
@@ -248,6 +249,36 @@ const db = new Kysely({
 })
 ```
 
+## Performance Monitoring
+
+The driver automatically streams timing data into a global performance monitor that you can interrogate at runtime. You can also create your own monitors for targeted dashboards.
+
+```typescript
+import {
+  globalPerformanceMonitor,
+  PerformanceMonitor,
+  formatPerformanceStats,
+} from '@oorabona/kysely-duckdb'
+
+// Inspect the global metrics captured by the dialect
+const stats = globalPerformanceMonitor.getStats()
+console.log(formatPerformanceStats(stats))
+
+// Or plug a custom monitor into your app lifecycle
+const monitor = new PerformanceMonitor({ slowQueryThreshold: 500 })
+
+function recordQuery(sql: string, duration: number, rows: number): void {
+  monitor.recordQuery({ sql, duration, rowCount: rows })
+}
+
+// Later, expose metrics in observability pipelines
+app.get('/metrics/db', (_req, res) => {
+  res.type('text/plain').send(formatPerformanceStats(monitor.getStats()))
+})
+```
+
+The monitor keeps a rolling buffer of queries, highlights slow statements, tracks error rate, and also exposes helpers like `getRecentQueries()` for ad-hoc diagnostics.
+
 ## Migrations
 
 ```typescript
@@ -380,11 +411,54 @@ import { DuckDbDialect } from '@oorabona/kysely-duckdb'
 const db = new Kysely({
   dialect: new DuckDbDialect({ database, uuidAsString: true }),
 })
+
+## Project Structure
+
+| Path | Purpose |
+| --- | --- |
+| `src/dialect` | Core dialect implementation (adapter, driver, query compiler, introspector) plus helpers for external table mappings and extension loading. |
+| `src/extensions` | Tree-shakeable helpers for JSON, spatial, and vector extensions, including idempotent loaders. |
+| `src/internal` | Cross-cutting utilities such as the performance monitor and environment/version checks. |
+| `src/migrations` | File-based migration providers and utilities shared by TypeScript and SQL workflows. |
+| `src/plugins` | First-class Kysely plugins (currently a case-converter for camelCase ⟷ snake_case bridging). |
+| `src/types` | Strongly-typed DuckDB data model definitions and dialect configuration contracts. |
+| `src/validation` | Valibot schemas for runtime validation of dialect configuration and table mappings. |
+| `examples/` | End-to-end runnable examples that mirror the sections of this guide (basic usage, streaming, performance, monitoring, etc.). |
+| `tests/integration` | Coverage-oriented suites exercising complex data types, migrations, and dialect behaviour against real DuckDB engines. |
+| `tests/unit` | Fast feedback for adapters, providers, and helpers (including failure modes and UUID conversions). |
+| `docs/` | Supplemental architectural notes, ADRs, and deep dives into release workflows. |
+
 ```
 
 Notes:
 - Conversion applies only to UUID-typed columns in results. Parameters can be strings or UUID expressions.
 - The underlying DuckDB UUID runtime class may vary by environment; conversion uses duck-typing with fallbacks.
+
+### Configuration Validation
+
+Runtime validation helps catch misconfigured external table mappings or unsupported options before queries execute. The package ships Valibot schemas that mirror the dialect configuration.
+
+```typescript
+import { parse } from 'valibot'
+import { ConnectionConfigSchema } from '@oorabona/kysely-duckdb'
+
+const config = parse(ConnectionConfigSchema, {
+  uuidAsString: true,
+  tableMappings: {
+    users: { source: './data/users.parquet' },
+    logs: './data/logs/*.csv',
+  },
+})
+
+const db = new Kysely({
+  dialect: new DuckDbDialect({
+    database,
+    ...config,
+  }),
+})
+```
+
+For finer control you can also import `TableMappingSchema` or `LoggerConfigSchema` and embed them inside your own configuration layers.
 
 ## Performance Tips
 
@@ -434,7 +508,9 @@ See the [examples](./examples) directory for complete working examples:
 - [Streaming](./examples/streaming.ts) - Handling large datasets efficiently
 - [Advanced Queries](./examples/advanced-queries.ts) - CTEs, window functions, analytics
 - [Performance](./examples/performance.ts) - Optimization and monitoring
+- [Performance Monitoring](./examples/performance-monitoring.ts) - Collecting query metrics and exporting stats
 - [Native Logging](./examples/native-logging.ts) - Built-in query logging
+- [Serial Support](./examples/serial.ts) - Working with auto-incrementing identifiers
 
 ## Security
 
@@ -511,7 +587,7 @@ If you discover a security vulnerability, create a private security advisory on 
 ## Requirements
 
 - Node.js 20.0.0 or higher
-- TypeScript 5.3 or higher (for development)
+- TypeScript 5.9 or higher (for development)
 - DuckDB 1.1.0 or higher (automatically installed with @duckdb/node-api)
 
 ## License
@@ -524,7 +600,13 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 
 ### Releases & Changelog
 
-This project uses [Changesets](https://github.com/changesets/changesets) to manage versions and generate the changelog. Add a changeset in your PR (`pnpm changeset`), then merge. The CI will open a Version PR that bumps versions and updates CHANGELOG.md; merging that will publish to npm.
+Versioning is automated with [`@oorabona/release-it-preset`](https://github.com/oorabona/release-it-preset). The recommended flow is:
+
+1. Run `pnpm release` (dry-runs by default) or use the *Release* GitHub Action to pick the increment.
+2. Review the generated changelog and dist artifacts.
+3. Approve the publish workflow (`Publish`), which tags, updates the GitHub release, and publishes to npm with provenance enabled.
+
+For exceptional cases see the additional workflows (`Hotfix`, `Retry Publish`, `Republish`) under `.github/workflows/`.
 
 ## Changelog
 
